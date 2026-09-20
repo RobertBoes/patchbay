@@ -1,0 +1,66 @@
+{
+    "name": "robertboes/patchbay",
+    "description": "Dynamic Laravel Reverb applications. Manage your WebSocket apps in the database and reload them without restarting the server.",
+    "keywords": [
+        "laravel",
+        "reverb",
+        "websockets",
+        "multi-tenant",
+        "pusher"
+    ],
+    "homepage": "https://github.com/RobertBoes/patchbay",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Robert Boes"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "illuminate/contracts": "^12.0 || ^13.0",
+        "illuminate/database": "^12.0 || ^13.0",
+        "illuminate/support": "^12.0 || ^13.0",
+        "laravel/reverb": "^1.9",
+        "spatie/laravel-package-tools": "^1.92.7"
+    },
+    "require-dev": {
+        "filament/filament": "^4.0 || ^5.0",
+        "laravel/octane": "^2.0",
+        "laravel/pint": "^1.0",
+        "orchestra/testbench": "^10.0 || ^11.0",
+        "phpunit/phpunit": "^11.0 || ^12.0 || ^13.0"
+    },
+    "suggest": {
+        "filament/filament": "Required to use the Patchbay dashboard for managing Reverb applications."
+    },
+    "autoload": {
+        "psr-4": {
+            "RobertBoes\\Patchbay\\": "src",
+            "RobertBoes\\Patchbay\\Database\\Factories\\": "database/factories"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "RobertBoes\\Patchbay\\Tests\\": "tests"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "RobertBoes\\Patchbay\\PatchbayServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "php-http/discovery": true
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "scripts": {
+        "test": "vendor/bin/phpunit",
+        "format": "vendor/bin/pint"
+    }
+}
