@@ -14,11 +14,6 @@ use RobertBoes\Patchbay\Contracts\AppSource;
 use RobertBoes\Patchbay\Contracts\ReloadDriver;
 use RobertBoes\Patchbay\Reload\AppChange;
 
-/**
- * Keeps the registry current inside the running Reverb server. Applies one
- * change at a time where it can, and reloads everything only when the driver
- * reports it lost track.
- */
 class Reloader
 {
     protected bool $listening = false;
@@ -52,10 +47,6 @@ class Reloader
         $this->listening = true;
     }
 
-    /**
-     * Registered here because this is where the package learns the server has
-     * started, and it already holds the loop the server is about to run.
-     */
     protected function recordMetrics(): void
     {
         if (! $this->config->get('patchbay.metrics.enabled', true)) {
@@ -115,10 +106,6 @@ class Reloader
         Log::info('Patchbay Application Reloaded', $change->id);
     }
 
-    /**
-     * Read before forgetting, because disconnecting the clients needs the
-     * instance the registry is about to discard.
-     */
     protected function remove(string $id): void
     {
         $application = $this->registry->findById($id);

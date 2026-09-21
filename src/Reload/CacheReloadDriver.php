@@ -8,15 +8,6 @@ use React\EventLoop\Loop;
 use React\EventLoop\TimerInterface;
 use RobertBoes\Patchbay\Contracts\ReloadDriver;
 
-/**
- * Carries changes through the cache, needing no extra infrastructure. The panel
- * appends to a bounded log and bumps a version counter; the server polls the
- * counter and reads the log only when it moved.
- *
- * Falling further behind than the backlog means the server cannot know what it
- * missed, so it reloads everything rather than replaying a partial log — a
- * dropped signal is a slow refresh, not stale credentials served quietly.
- */
 class CacheReloadDriver implements ReloadDriver
 {
     protected ?TimerInterface $timer = null;
@@ -48,9 +39,8 @@ class CacheReloadDriver implements ReloadDriver
     }
 
     /**
-     * Two concurrent publishes can interleave and lose a log entry. Survivable
-     * rather than fixed: the version counter increments atomically and still
-     * counts both, so the server sees the mismatch and reloads everything.
+     * Concurrent publishes can interleave and lose a log entry. The version
+     * counter still counts both, so the server sees the mismatch and reloads.
      */
     public function publish(AppChange $change): void
     {

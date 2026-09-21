@@ -13,13 +13,6 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use RobertBoes\Patchbay\Filament\PatchbayPlugin;
 
-/**
- * The panel the package's own tests run against.
- *
- * Exists so Patchbay's Filament layer is exercised by this package's CI rather
- * than only by an application that happens to install it — which is the only
- * way the supported Filament range can be tested at both ends.
- */
 class TestPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel

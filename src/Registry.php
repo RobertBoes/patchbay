@@ -5,14 +5,6 @@ namespace RobertBoes\Patchbay;
 use Illuminate\Support\Collection;
 use Laravel\Reverb\Application;
 
-/**
- * The in-memory set of applications the server answers from.
- *
- * Reverb's ApplicationProvider returns an Application, not a promise, so a
- * lookup cannot await I/O — anything synchronous there blocks the event loop
- * and every connection on it. This keeps the lookup an array read, and a reload
- * driver keeps the contents current.
- */
 class Registry
 {
     /** @var array<string, Application> */
@@ -21,9 +13,7 @@ class Registry
     /** @var array<string, Application> */
     protected array $byId = [];
 
-    /**
-     * Whether a miss can be answered authoritatively instead of falling back.
-     */
+    /** Whether a miss can be answered authoritatively instead of falling back. */
     protected bool $complete = false;
 
     public function put(Application $application): void
@@ -56,8 +46,6 @@ class Registry
     }
 
     /**
-     * Replace the contents wholesale and mark the registry complete.
-     *
      * @param  iterable<Application>  $applications
      */
     public function replace(iterable $applications): void

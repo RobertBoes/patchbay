@@ -9,14 +9,6 @@ use Laravel\Reverb\Loggers\Log;
 use Laravel\Reverb\Protocols\Pusher\Contracts\ChannelManager;
 use RobertBoes\Patchbay\Registry;
 
-/**
- * Samples what each application is doing, from inside the running server. The
- * counts are already in memory here, and message throughput exists nowhere
- * else — the HTTP API does not report it.
- *
- * Messages are counted in memory and written once per interval, so the database
- * never sits on the path of an individual frame.
- */
 class MetricsRecorder
 {
     /** @var array<string, array{sent: int, received: int}> */
@@ -96,9 +88,6 @@ class MetricsRecorder
         return $this->messages;
     }
 
-    /**
-     * Null outside the running server, where there is nothing to sample.
-     */
     protected function channelManager(): ?ChannelManager
     {
         if (! $this->container->bound(ChannelManager::class)) {

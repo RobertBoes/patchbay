@@ -31,9 +31,6 @@ class MetricsRecorderTest extends TestCase
         return $application;
     }
 
-    /**
-     * Stand in for the channel manager the running server binds.
-     */
     protected function fakeChannels(int $connections, int $channels): void
     {
         $manager = Mockery::mock(ChannelManager::class);

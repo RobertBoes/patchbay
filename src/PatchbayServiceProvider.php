@@ -40,8 +40,6 @@ class PatchbayServiceProvider extends PackageServiceProvider
 
     public function packageRegistered(): void
     {
-        // One per process: warm for the life of the daemon inside the Reverb
-        // server, a request-scoped memo inside a web request.
         $this->app->singleton(Registry::class);
 
         $this->app->singleton(ApplicationFactory::class);
@@ -92,10 +90,6 @@ class PatchbayServiceProvider extends PackageServiceProvider
         $this->clearRegistryBetweenOctaneRequests();
     }
 
-    /**
-     * Reverb's ApplicationManager is an Illuminate Manager, so this is its
-     * supported extension point. Set `reverb.apps.provider` to "patchbay".
-     */
     protected function registerReverbDriver(): void
     {
         // Captured, because Manager::extend() rebinds the callback's $this to
@@ -111,12 +105,6 @@ class PatchbayServiceProvider extends PackageServiceProvider
         );
     }
 
-    /**
-     * Deferred to the loop's first tick rather than run here: CommandStarting
-     * fires before the command installs its logger, and Reverb's Log memoises
-     * whichever logger it first resolves into a static property — logging this
-     * early would pin the null logger and silence the whole server's --debug.
-     */
     protected function listenForServerStart(): void
     {
         $this->app->make(Dispatcher::class)->listen(
@@ -126,6 +114,9 @@ class PatchbayServiceProvider extends PackageServiceProvider
                     return;
                 }
 
+                // Deferred to the loop's first tick: Reverb's Log memoises the first
+                // logger it resolves, and logging before the command installs its own
+                // would pin the null logger and silence the server's --debug.
                 Loop::get()->futureTick(
                     fn() => $this->app->make(Reloader::class)->start(),
                 );
@@ -133,10 +124,6 @@ class PatchbayServiceProvider extends PackageServiceProvider
         );
     }
 
-    /**
-     * Under Octane a singleton outlives its request, and the reload driver only
-     * listens inside the Reverb server — so a web process drops the registry.
-     */
     protected function clearRegistryBetweenOctaneRequests(): void
     {
         if (! class_exists(RequestReceived::class)) {

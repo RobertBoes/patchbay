@@ -10,13 +10,6 @@ use Illuminate\Support\Facades\Schema;
 use RobertBoes\Patchbay\Tests\Fixtures\TestPanelProvider;
 use RobertBoes\Patchbay\Tests\Fixtures\User;
 
-/**
- * Base for tests that exercise the Filament dashboard.
- *
- * Kept separate from the plain TestCase so the rest of the suite proves the
- * package works with Filament absent, which is the state most applications
- * installing it will be in.
- */
 abstract class FilamentTestCase extends TestCase
 {
     protected function setUp(): void

@@ -74,11 +74,6 @@ class ServerApiTest extends TestCase
         $this->assertSame(0, $metrics->connections);
     }
 
-    /**
-     * Guzzle surfaces a 4xx as a transport error, which Laravel marshals into
-     * a RequestException. An unknown application must read as unavailable,
-     * not take down the page asking about it.
-     */
     public function test_a_failing_response_that_throws_is_unavailable(): void
     {
         Http::fake(fn() => throw new \Illuminate\Http\Client\RequestException(

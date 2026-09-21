@@ -6,15 +6,9 @@ use RobertBoes\Patchbay\Contracts\ReloadDriver;
 use RobertBoes\Patchbay\Models\App;
 use RobertBoes\Patchbay\Reload\AppChange;
 
-/**
- * Mints credentials, and tells the running server what changed.
- */
 class AppObserver
 {
-    /**
-     * Attributes the Reverb server reads. Renaming an application is a control
-     * panel concern and never reaches the event loop.
-     */
+    /** Attributes the Reverb server reads; renaming never reaches the event loop. */
     protected const RELOADABLE = [
         'key',
         'secret',

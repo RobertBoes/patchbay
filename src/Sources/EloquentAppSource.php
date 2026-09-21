@@ -9,11 +9,6 @@ use Laravel\Reverb\Application;
 use RobertBoes\Patchbay\ApplicationFactory;
 use RobertBoes\Patchbay\Contracts\AppSource;
 
-/**
- * Loads applications from the database. Nothing here runs on the connection
- * path: everything is loaded at boot or when a change is missed, and a single
- * application is an indexed lookup.
- */
 class EloquentAppSource implements AppSource
 {
     public function __construct(
@@ -49,10 +44,7 @@ class EloquentAppSource implements AppSource
         return $app ? $this->toApplication($app) : null;
     }
 
-    /**
-     * A plain where rather than a scope, so a model swapped in through
-     * `patchbay.model` only has to have the column, not implement our API.
-     */
+    /** A plain where, so a model swapped in through `patchbay.model` only needs the column. */
     protected function query(): Builder
     {
         return $this->model::query()->where('active', true);

@@ -5,11 +5,6 @@ namespace RobertBoes\Patchbay;
 use Illuminate\Contracts\Config\Repository as Config;
 use Laravel\Reverb\Application;
 
-/**
- * Every argument is passed by name because Reverb's Application constructor has
- * three times inserted a new parameter before $options. Positional arguments
- * silently shift on upgrade.
- */
 class ApplicationFactory
 {
     public function __construct(protected Config $config)

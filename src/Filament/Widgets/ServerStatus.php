@@ -10,11 +10,6 @@ use RobertBoes\Patchbay\Models\Metric;
 use RobertBoes\Patchbay\Server\ServerAddress;
 use RobertBoes\Patchbay\Server\ServerApi;
 
-/**
- * Whether the server is up, and how much is going through it. The connection
- * count comes from recorded samples: asking the server per application would
- * cost two HTTP requests per application on every tick.
- */
 class ServerStatus extends StatsOverviewWidget
 {
     protected function getStats(): array
@@ -55,12 +50,6 @@ class ServerStatus extends StatsOverviewWidget
     }
 
     /**
-     * The most recent sample from each server.
-     *
-     * Every server records on its own timer, so one reading of the fleet is the
-     * latest sample from each of them — not every row sharing one timestamp,
-     * which describes a single server only.
-     *
      * @param  class-string  $model
      * @return Collection<int, Metric>
      */

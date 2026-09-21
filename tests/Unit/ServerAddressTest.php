@@ -44,11 +44,6 @@ class ServerAddressTest extends TestCase
         $this->assertStringStartsWith('http://127.0.0.1:', $this->address()->url());
     }
 
-    /**
-     * The case that bites in local development: setting REVERB_HOST to a name
-     * with a Valet or Herd certificate makes Reverb serve TLS, so anything
-     * still dialling plain HTTP on the bind address silently fails.
-     */
     public function test_a_certificate_for_the_hostname_makes_the_address_secure(): void
     {
         $this->certificateFor('patchbay-test.test');
@@ -101,10 +96,6 @@ class ServerAddressTest extends TestCase
         $this->assertStringEndsWith(':9000', $this->address()->url());
     }
 
-    /**
-     * `reverb.default` chooses which server block is live, so the address has
-     * to follow it rather than assume the one named "reverb".
-     */
     public function test_it_follows_the_configured_default_server(): void
     {
         config()->set('reverb.default', 'other');

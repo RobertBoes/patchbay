@@ -2,11 +2,6 @@
 
 namespace RobertBoes\Patchbay\Reload;
 
-/**
- * A single change to a single application. Carrying the ID is the point: a
- * signal that only says "something changed" leaves the server no option but to
- * reload everything.
- */
 class AppChange
 {
     public const UPSERT = 'upsert';

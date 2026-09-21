@@ -6,13 +6,6 @@ use Illuminate\Contracts\Container\Container;
 use Laravel\Reverb\Application;
 use Laravel\Reverb\Protocols\Pusher\Contracts\ChannelManager;
 
-/**
- * Disconnects the clients of a revoked application. Forgetting an application
- * only stops new connections; open ones were authenticated when established.
- *
- * Reverb tracks connections through channels, so a client that has connected
- * but never subscribed is not enumerable and survives until its timeout.
- */
 class ConnectionTerminator
 {
     public function __construct(protected Container $container)

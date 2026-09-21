@@ -27,8 +27,6 @@ class ReloadTest extends TestCase
     }
 
     /**
-     * Collect what drain() decides, without an event loop.
-     *
      * @return array{changes: array<int, AppChange>, desynced: bool}
      */
     protected function drain(): array

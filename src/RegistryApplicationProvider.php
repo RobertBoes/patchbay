@@ -8,13 +8,6 @@ use Laravel\Reverb\Contracts\ApplicationProvider;
 use Laravel\Reverb\Exceptions\InvalidApplication;
 use RobertBoes\Patchbay\Contracts\AppSource;
 
-/**
- * Reverb's application provider, answering from the registry.
- *
- * Inside the Reverb server the registry is filled at boot and kept current by a
- * reload driver, so a lookup never touches the database. Inside a web request
- * it starts empty, so a lookup falls through to the source and memoises.
- */
 class RegistryApplicationProvider implements ApplicationProvider
 {
     public function __construct(
@@ -55,9 +48,6 @@ class RegistryApplicationProvider implements ApplicationProvider
     }
 
     /**
-     * When the registry holds every application a miss is the final answer,
-     * which keeps an unknown key from querying on every connection attempt.
-     *
      * @param  callable(): ?Application  $load
      *
      * @throws InvalidApplication

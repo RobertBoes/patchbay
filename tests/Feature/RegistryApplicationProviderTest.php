@@ -88,7 +88,6 @@ class RegistryApplicationProviderTest extends TestCase
             $provider->findByKey('does-not-exist');
             $this->fail('Expected InvalidApplication.');
         } catch (InvalidApplication) {
-            // expected
         }
 
         $this->assertCount(0, DB::getQueryLog(), 'An unknown key must not cost a query on every connection.');

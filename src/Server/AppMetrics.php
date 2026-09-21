@@ -2,10 +2,6 @@
 
 namespace RobertBoes\Patchbay\Server;
 
-/**
- * What a running Reverb server reports about one application. Callers read
- * `available` first: "no connections" and "cannot tell" are different answers.
- */
 final class AppMetrics
 {
     /**

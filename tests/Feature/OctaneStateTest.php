@@ -8,12 +8,6 @@ use Laravel\Reverb\Application;
 use RobertBoes\Patchbay\Registry;
 use RobertBoes\Patchbay\Tests\TestCase;
 
-/**
- * Under Octane the container survives between requests, so a singleton holding
- * state carries it into the next request. A registry filled during one request
- * would keep answering with applications that have since changed, and nothing
- * in an ordinary test suite would notice because every test boots fresh.
- */
 class OctaneStateTest extends TestCase
 {
     use RefreshDatabase;

@@ -58,11 +58,6 @@ class AppTableTest extends FilamentTestCase
         $this->assertTrue($app->fresh()->active);
     }
 
-    /**
-     * A record action is built once and evaluated per row, so a label computed
-     * from a value would describe whichever record came first and would be
-     * wrong for every other row on the page.
-     */
     public function test_the_row_action_is_labelled_per_record(): void
     {
         $active = App::create(['name' => 'active-one']);

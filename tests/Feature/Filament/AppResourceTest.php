@@ -72,11 +72,6 @@ class AppResourceTest extends FilamentTestCase
             ->assertSee($app->secret);
     }
 
-    /**
-     * Filament caches action objects for the life of the component, so a label
-     * built from a value describes the record as it was before the click and
-     * only catches up on a full page load.
-     */
     public function test_the_reveal_button_flips_on_the_first_click(): void
     {
         $app = App::create(['name' => 'togglable']);
@@ -113,10 +108,6 @@ class AppResourceTest extends FilamentTestCase
             ->assertSee('VITE_REVERB_APP_KEY', escape: false);
     }
 
-    /**
-     * The secret is deliberately not mass assignable, so rotation has to
-     * assign it — update() would discard it without complaint.
-     */
     public function test_rotating_the_secret_replaces_it(): void
     {
         $app = App::create(['name' => 'rotatable']);

@@ -80,13 +80,9 @@ class ApplicationFactoryTest extends TestCase
     }
 
     /**
-     * Reverb's Application constructor has gained a parameter three times —
-     * maxConnections in 1.6, acceptClientEventsFrom in 1.8 and rateLimiting
-     * in 1.9 — each one inserted before $options. Anything passing arguments
-     * positionally shifts silently on upgrade, which is what pinned the
-     * original implementation to Reverb 1.3. This asserts the parameter names
-     * we pass by still exist, so a future insertion fails here rather than at
-     * a customer's connection.
+     * Reverb's Application constructor has three times gained a parameter before
+     * $options, so positional arguments shift silently on upgrade. Asserting the
+     * names we pass by makes a future insertion fail here, not at a connection.
      */
     public function test_it_passes_every_argument_by_a_name_reverb_still_defines(): void
     {

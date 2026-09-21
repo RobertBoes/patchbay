@@ -6,11 +6,6 @@ use Filament\Contracts\Plugin;
 use Filament\Panel;
 use RobertBoes\Patchbay\Filament\Resources\AppResource;
 
-/**
- * Registers Patchbay's dashboard with a Filament panel:
- *
- *     $panel->plugin(PatchbayPlugin::make())
- */
 class PatchbayPlugin implements Plugin
 {
     protected bool $registersResource = true;
@@ -28,9 +23,6 @@ class PatchbayPlugin implements Plugin
         return 'patchbay';
     }
 
-    /**
-     * Leave the resource out, to register your own in its place.
-     */
     public function withoutResource(bool $condition = true): static
     {
         $this->registersResource = ! $condition;
@@ -39,9 +31,6 @@ class PatchbayPlugin implements Plugin
     }
 
     /**
-     * Opt-in, because a dashboard is the application's own page and a package
-     * should not help itself to it. Pass a list to choose which.
-     *
      * @param  array<int, class-string>|null  $widgets
      */
     public function widgets(?array $widgets = null): static

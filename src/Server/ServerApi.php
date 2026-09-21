@@ -7,13 +7,6 @@ use Illuminate\Http\Client\HttpClientException;
 use Illuminate\Http\Client\Factory as Http;
 use Laravel\Reverb\Application;
 
-/**
- * Talks to a running Reverb server's HTTP API — connection counts, open
- * channels, whether it is up — none of which is in the database.
- *
- * Every call is bounded by a timeout and cached briefly, so a server that has
- * stopped responding cannot turn a page load into a queue of hanging requests.
- */
 class ServerApi
 {
     protected int $timeout;
@@ -68,8 +61,6 @@ class ServerApi
     }
 
     /**
-     * Null when the server cannot answer.
-     *
      * @return array<string, mixed>|null
      */
     protected function get(Application $application, string $path): ?array

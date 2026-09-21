@@ -14,10 +14,6 @@ class ViewApp extends ViewRecord
 {
     protected static string $resource = AppResource::class;
 
-    /**
-     * Component state rather than the session, so the secret stays visible for
-     * exactly as long as the page is open.
-     */
     public bool $secretRevealed = false;
 
     public function mount(int|string $record): void
@@ -39,10 +35,6 @@ class ViewApp extends ViewRecord
         ];
     }
 
-    /**
-     * The secret is encrypted rather than hashed, so it can be shown again.
-     * Showing it only on request keeps it off an unattended screen.
-     */
     protected function revealAction(): Action
     {
         return Action::make('reveal')
@@ -78,13 +70,6 @@ class ViewApp extends ViewRecord
             });
     }
 
-    /**
-     * Deactivating is the revoke button: it stops new connections and drops the
-     * ones the application already has.
-     *
-     * Every label is a closure because Filament caches the action object for the
-     * lifetime of the component, so a computed value would not survive a click.
-     */
     protected function activationAction(): Action
     {
         return Action::make('activation')

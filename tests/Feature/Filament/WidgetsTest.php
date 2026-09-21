@@ -45,10 +45,6 @@ class WidgetsTest extends FilamentTestCase
         Livewire::test(ServerStatus::class)->assertOk();
     }
 
-    /**
-     * A widget polls, so gathering the figure per application would cost two
-     * HTTP requests per application on every tick.
-     */
     public function test_the_connection_count_costs_no_request_per_application(): void
     {
         $apps = App::factory()->count(20)->create();
@@ -64,11 +60,6 @@ class WidgetsTest extends FilamentTestCase
         Http::assertSentCount(1);
     }
 
-    /**
-     * Each server records on its own timer, so their samples never share a
-     * timestamp. Counting one timestamp would report a single server's figure
-     * as though it were the whole fleet's.
-     */
     public function test_it_sums_the_latest_sample_from_every_server(): void
     {
         $app = App::factory()->create();

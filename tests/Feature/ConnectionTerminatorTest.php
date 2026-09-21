@@ -17,9 +17,6 @@ class ConnectionTerminatorTest extends TestCase
     use RefreshDatabase;
 
     /**
-     * Stand in for the channel manager the running server binds, recording
-     * which connections were asked to disconnect.
-     *
      * @param  array<int, string>  $connectionIds
      */
     protected function fakeChannelManager(array $connectionIds, array &$disconnected): void

@@ -5,10 +5,6 @@ namespace RobertBoes\Patchbay\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Connection and channel counts are gauges — true at the moment of sampling.
- * Message counts are totals since the previous sample, so summing them over a
- * window gives the traffic in that window.
- *
  * @property string $app_id
  * @property string|null $server
  * @property int $connections

@@ -224,10 +224,6 @@ class AppResource extends Resource
             ]);
     }
 
-    /**
-     * Every label is a closure because Filament builds a record action once and
-     * evaluates it per row: a computed value would describe the first record.
-     */
     protected static function activationAction(): Action
     {
         return Action::make('activation')
@@ -239,18 +235,11 @@ class AppResource extends Resource
             ->action(fn(Model $record) => $record->update(['active' => ! $record->active]));
     }
 
-    /**
-     * Shown wherever an application is about to lose its connections.
-     */
     public static function revokeWarning(): string
     {
         return __('Connected clients are disconnected and new connections are refused.');
     }
 
-    /**
-     * Stats only. The chart is full width and tall, and above a table it pushes
-     * the rows below the fold.
-     */
     public static function getWidgets(): array
     {
         return [Widgets\ServerStatus::class];
@@ -272,9 +261,6 @@ class AppResource extends Resource
     }
 
     /**
-     * An inactive application and an unreachable server both mean "no number to
-     * show", but only one of them is a problem.
-     *
      * @param  callable(AppMetrics): string  $present
      */
     protected static function describe(Model $record, callable $present): string

@@ -6,10 +6,6 @@ use Filament\Widgets\ChartWidget;
 use Illuminate\Support\Carbon;
 use RobertBoes\Patchbay\Models\Metric;
 
-/**
- * Connections and message throughput over the last day, read from recorded
- * samples rather than the server, so it still draws when the server is down.
- */
 class ConnectionsChart extends ChartWidget
 {
     protected ?string $heading = 'Connections';
@@ -19,9 +15,6 @@ class ConnectionsChart extends ChartWidget
     // Uncapped, a line chart fills most of a narrow screen.
     protected ?string $maxHeight = '260px';
 
-    /**
-     * Polling faster than the recording interval redraws the same picture.
-     */
     public function getPollingInterval(): ?string
     {
         return max(30, (int) config('patchbay.metrics.interval', 60)) . 's';

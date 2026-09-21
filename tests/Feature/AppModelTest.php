@@ -53,10 +53,6 @@ class AppModelTest extends TestCase
         $this->assertArrayNotHasKey('secret', $app->toArray());
     }
 
-    /**
-     * Guarding the secret means anything rotating it has to assign it rather
-     * than pass it to update(), which would discard it silently.
-     */
     public function test_a_secret_cannot_be_rotated_by_mass_assignment(): void
     {
         $app = App::create(['name' => 'test']);

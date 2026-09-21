@@ -43,11 +43,6 @@ class EnvSnippetTest extends TestCase
         $this->assertStringContainsString('REVERB_SCHEME=http', $snippet);
     }
 
-    /**
-     * The browser values interpolate the server ones, as Laravel's own
-     * .env.example writes them, so a consumer whose browsers take a different
-     * route changes them in the application that owns them.
-     */
     public function test_the_browser_values_interpolate_the_server_ones(): void
     {
         $this->setApi('sockets.example.test', 443, 'https');

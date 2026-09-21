@@ -22,10 +22,7 @@ class App extends Model
     use HasFactory;
     use HasUlids;
 
-    /**
-     * Listed explicitly rather than guarded, which would leave `key`, `secret`
-     * and `active` writable from request data. The observer sets credentials.
-     */
+    /** Explicit rather than guarded: `key`, `secret` and `active` must not be request-writable. */
     protected $fillable = [
         'name',
         'active',
@@ -38,10 +35,7 @@ class App extends Model
         'rate_limiting',
     ];
 
-    /**
-     * On the model as well as the column: otherwise a new application reads back
-     * as null until refreshed, and the observer never announces it.
-     */
+    /** Set on the model as well as the column, or a new application reads back null. */
     protected $attributes = [
         'active' => true,
     ];
@@ -77,10 +71,6 @@ class App extends Model
         static::observe(AppObserver::class);
     }
 
-    /**
-     * The secret is stored encrypted rather than hashed because Pusher's HMAC
-     * signing needs the original value back.
-     */
     public static function generateKey(): string
     {
         return Str::random(20);
