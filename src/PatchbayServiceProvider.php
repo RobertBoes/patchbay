@@ -2,6 +2,20 @@
 
 namespace RobertBoes\Patchbay;
 
+use Illuminate\Console\Events\CommandStarting;
+use Illuminate\Contracts\Cache\Factory as CacheFactory;
+use Illuminate\Contracts\Container\Container;
+use Illuminate\Http\Client\Factory as Http;
+use Illuminate\Contracts\Events\Dispatcher;
+use Laravel\Octane\Events\RequestReceived;
+use Laravel\Reverb\ApplicationManager;
+use React\EventLoop\Loop;
+use RobertBoes\Patchbay\Contracts\AppSource;
+use RobertBoes\Patchbay\Contracts\ReloadDriver;
+use RobertBoes\Patchbay\Exceptions\InvalidReloadDriver;
+use RobertBoes\Patchbay\Metrics\MetricsRecorder;
+use RobertBoes\Patchbay\Server\ServerAddress;
+use RobertBoes\Patchbay\Server\ServerApi;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
@@ -11,6 +25,150 @@ class PatchbayServiceProvider extends PackageServiceProvider
     {
         $package
             ->name('patchbay')
-            ->hasConfigFile('patchbay');
+            ->hasConfigFile('patchbay')
+            ->hasMigrations([
+                'create_patchbay_apps_table',
+                'create_patchbay_metrics_table',
+            ])
+            ->hasCommands([
+                Console\InstallCommand::class,
+                Console\AppCommand::class,
+                Console\StatusCommand::class,
+                Console\PruneMetricsCommand::class,
+            ]);
+    }
+
+    public function packageRegistered(): void
+    {
+        // One per process: warm for the life of the daemon inside the Reverb
+        // server, a request-scoped memo inside a web request.
+        $this->app->singleton(Registry::class);
+
+        $this->app->singleton(ApplicationFactory::class);
+
+        $this->app->singleton(MetricsRecorder::class, fn($app) => new MetricsRecorder(
+            container: $app,
+            registry: $app->make(Registry::class),
+            model: $app['config']->get('patchbay.metrics.model', Models\Metric::class),
+            server: $app['config']->get('patchbay.metrics.server') ?: (gethostname() ?: null),
+        ));
+
+        $this->app->singleton(ServerApi::class, fn($app) => new ServerApi(
+            http: $app->make(Http::class),
+            cache: $app->make(CacheFactory::class)->store(
+                $app['config']->get('patchbay.server.cache_store'),
+            ),
+            address: $app->make(ServerAddress::class),
+            config: (array) $app['config']->get('patchbay.server', []),
+        ));
+
+        $this->app->singleton(AppSource::class, function ($app) {
+            $source = $app['config']->get('patchbay.source', Sources\EloquentAppSource::class);
+
+            return $app->make($source, [
+                'model' => $app['config']->get('patchbay.model', Models\App::class),
+            ]);
+        });
+
+        $this->app->singleton(ReloadDriver::class, fn($app) => $this->resolveReloadDriver($app));
+
+        $this->app->singleton(RegistryApplicationProvider::class);
+
+        $this->app->singleton(Reloader::class, fn($app) => new Reloader(
+            registry: $app->make(Registry::class),
+            source: $app->make(AppSource::class),
+            driver: $app->make(ReloadDriver::class),
+            terminator: $app->make(ConnectionTerminator::class),
+            container: $app,
+            config: $app['config'],
+            terminateOnRevoke: (bool) $app['config']->get('patchbay.terminate_on_revoke', true),
+        ));
+    }
+
+    public function packageBooted(): void
+    {
+        $this->registerReverbDriver();
+        $this->listenForServerStart();
+        $this->clearRegistryBetweenOctaneRequests();
+    }
+
+    /**
+     * Reverb's ApplicationManager is an Illuminate Manager, so this is its
+     * supported extension point. Set `reverb.apps.provider` to "patchbay".
+     */
+    protected function registerReverbDriver(): void
+    {
+        // Captured, because Manager::extend() rebinds the callback's $this to
+        // the manager, where $this->app would resolve against the wrong object.
+        $container = $this->app;
+
+        $this->callAfterResolving(
+            ApplicationManager::class,
+            fn(ApplicationManager $manager) => $manager->extend(
+                'patchbay',
+                fn() => $container->make(RegistryApplicationProvider::class),
+            ),
+        );
+    }
+
+    /**
+     * Deferred to the loop's first tick rather than run here: CommandStarting
+     * fires before the command installs its logger, and Reverb's Log memoises
+     * whichever logger it first resolves into a static property — logging this
+     * early would pin the null logger and silence the whole server's --debug.
+     */
+    protected function listenForServerStart(): void
+    {
+        $this->app->make(Dispatcher::class)->listen(
+            CommandStarting::class,
+            function (CommandStarting $event) {
+                if ($event->command !== 'reverb:start') {
+                    return;
+                }
+
+                Loop::get()->futureTick(
+                    fn() => $this->app->make(Reloader::class)->start(),
+                );
+            },
+        );
+    }
+
+    /**
+     * Under Octane a singleton outlives its request, and the reload driver only
+     * listens inside the Reverb server — so a web process drops the registry.
+     */
+    protected function clearRegistryBetweenOctaneRequests(): void
+    {
+        if (! class_exists(RequestReceived::class)) {
+            return;
+        }
+
+        $this->app->make(Dispatcher::class)->listen(
+            RequestReceived::class,
+            fn() => $this->app->make(Registry::class)->flush(),
+        );
+    }
+
+    protected function resolveReloadDriver(Container $container): ReloadDriver
+    {
+        $config = $container->make('config');
+        $name = $config->get('patchbay.reload.driver', 'cache');
+        $drivers = (array) $config->get('patchbay.reload.drivers', []);
+
+        if (! isset($drivers[$name])) {
+            throw InvalidReloadDriver::notConfigured($name, array_keys($drivers));
+        }
+
+        $settings = (array) $drivers[$name];
+
+        if (! $via = $settings['via'] ?? null) {
+            throw InvalidReloadDriver::missingClass($name);
+        }
+
+        // Applies to whichever driver is in use, so it is not repeated per
+        // driver in config.
+        $settings['reconcile_every'] = $config->get('patchbay.reload.reconcile_every', 300);
+
+        return $container->make($via, ['config' => $settings]);
     }
 }
