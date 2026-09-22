@@ -37,7 +37,12 @@ class ApplicationFactory
      */
     protected function setting(array $attributes, string $key): mixed
     {
-        return $attributes[$key] ?? $this->config->get("patchbay.defaults.{$key}");
+        // Empty falls back as well as null: a form field left blank saves [],
+        // which as allowed_origins would reach Reverb as an allowlist that
+        // admits no one.
+        return filled($attributes[$key] ?? null)
+            ? $attributes[$key]
+            : $this->config->get("patchbay.defaults.{$key}");
     }
 
     protected function nullableInt(mixed $value): ?int

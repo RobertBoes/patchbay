@@ -45,6 +45,17 @@ class ApplicationFactoryTest extends TestCase
         $this->assertSame(['https://example.test'], $application->allowedOrigins());
     }
 
+    public function test_an_empty_origin_list_falls_back_to_the_defaults(): void
+    {
+        config()->set('patchbay.defaults.allowed_origins', ['*']);
+
+        // What the form saves when the field is left empty. Passed through,
+        // it would reach Reverb as an allowlist that admits nothing.
+        $application = $this->factory()->make($this->attributes(['allowed_origins' => []]));
+
+        $this->assertSame(['*'], $application->allowedOrigins());
+    }
+
     public function test_an_application_overrides_the_defaults(): void
     {
         config()->set('patchbay.defaults.ping_interval', 45);
