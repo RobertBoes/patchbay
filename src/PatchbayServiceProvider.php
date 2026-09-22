@@ -28,6 +28,7 @@ class PatchbayServiceProvider extends PackageServiceProvider
         $package
             ->name('patchbay')
             ->hasConfigFile('patchbay')
+            ->hasViews()
             ->hasMigrations([
                 'create_patchbay_apps_table',
                 'create_patchbay_metrics_table',

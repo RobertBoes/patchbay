@@ -35,6 +35,38 @@ class ServerApiTest extends TestCase
         return $this->app->make(AppSource::class)->loadById($app->id);
     }
 
+    public function test_triggering_sends_a_signed_event(): void
+    {
+        Http::fake(['*' => Http::response('{}', 200)]);
+        $application = $this->application();
+
+        $this->assertTrue($this->api()->trigger($application, 'orders', 'shipped', ['id' => 7]));
+
+        Http::assertSent(function (Request $request) use ($application) {
+            parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+            $signature = $query['auth_signature'];
+            unset($query['auth_signature']);
+            ksort($query);
+
+            $path = "/apps/{$application->id()}/events";
+            $canonical = urldecode(http_build_query($query));
+            $expected = hash_hmac('sha256', "POST\n{$path}\n{$canonical}", $application->secret());
+
+            return $request->method() === 'POST'
+                && str_contains($request->url(), $path)
+                && $query['body_md5'] === md5($request->body())
+                && hash_equals($expected, $signature)
+                && $request->data() === ['name' => 'shipped', 'channels' => ['orders'], 'data' => '{"id":7}'];
+        });
+    }
+
+    public function test_a_refused_trigger_reports_failure(): void
+    {
+        Http::fake(['*' => Http::response('', 413)]);
+
+        $this->assertFalse($this->api()->trigger($this->application(), 'orders', 'shipped', []));
+    }
+
     public function test_it_reports_a_running_server(): void
     {
         Http::fake(['*/up' => Http::response('', 200)]);

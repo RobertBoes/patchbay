@@ -36,13 +36,13 @@ class ApplicationFactoryTest extends TestCase
     {
         config()->set('patchbay.defaults.ping_interval', 45);
         config()->set('patchbay.defaults.activity_timeout', 25);
-        config()->set('patchbay.defaults.allowed_origins', ['https://example.test']);
+        config()->set('patchbay.defaults.allowed_origins', ['example.test']);
 
         $application = $this->factory()->make($this->attributes());
 
         $this->assertSame(45, $application->pingInterval());
         $this->assertSame(25, $application->activityTimeout());
-        $this->assertSame(['https://example.test'], $application->allowedOrigins());
+        $this->assertSame(['example.test'], $application->allowedOrigins());
     }
 
     public function test_an_empty_origin_list_falls_back_to_the_defaults(): void
@@ -54,6 +54,16 @@ class ApplicationFactoryTest extends TestCase
         $application = $this->factory()->make($this->attributes(['allowed_origins' => []]));
 
         $this->assertSame(['*'], $application->allowedOrigins());
+    }
+
+    public function test_an_origin_written_as_a_url_is_reduced_to_its_host(): void
+    {
+        // Reverb compares hosts only; a URL here would refuse every client.
+        $application = $this->factory()->make($this->attributes([
+            'allowed_origins' => ['https://app.example.com', 'http://localhost:5173', '*.example.org'],
+        ]));
+
+        $this->assertSame(['app.example.com', 'localhost', '*.example.org'], $application->allowedOrigins());
     }
 
     public function test_an_application_overrides_the_defaults(): void

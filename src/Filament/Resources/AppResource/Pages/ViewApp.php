@@ -29,6 +29,7 @@ class ViewApp extends ViewRecord
     {
         return [
             Widgets\AppStats::class,
+            Widgets\DebugConsole::class,
             Widgets\AppConnectionsChart::class,
         ];
     }

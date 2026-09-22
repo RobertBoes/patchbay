@@ -3,7 +3,7 @@
 namespace RobertBoes\Patchbay\Console;
 
 use Illuminate\Console\Command;
-use RobertBoes\Patchbay\EnvSnippet;
+use RobertBoes\Patchbay\Snippets;
 use RobertBoes\Patchbay\Models\App;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -71,7 +71,7 @@ class CreateAppCommand extends Command
         }
 
         $this->newLine();
-        $this->line(app(EnvSnippet::class)->for($app));
+        $this->line(app(Snippets::class)->env($app));
         $this->newLine();
 
         return self::SUCCESS;

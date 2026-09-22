@@ -61,6 +61,35 @@ class ServerApi
     }
 
     /**
+     * Broadcasts an event through the server's HTTP API, the way any backend
+     * with a Pusher SDK would.
+     *
+     * @param  array<mixed>  $data
+     */
+    public function trigger(Application $application, string $channel, string $event, array $data): bool
+    {
+        $path = "/apps/{$application->id()}/events";
+
+        $body = (string) json_encode([
+            'name' => $event,
+            'channels' => [$channel],
+            'data' => json_encode($data),
+        ]);
+
+        try {
+            $response = $this->request()
+                ->withBody($body, 'application/json')
+                ->post($this->url($path) . '?' . http_build_query(
+                    $this->sign($application, 'POST', $path, ['body_md5' => md5($body)]),
+                ));
+        } catch (HttpClientException) {
+            return false;
+        }
+
+        return $response->successful();
+    }
+
+    /**
      * @return array<string, mixed>|null
      */
     protected function get(Application $application, string $path): ?array
@@ -80,14 +109,16 @@ class ServerApi
     }
 
     /**
+     * @param  array<string, string>  $extra  Signed along with the rest, as a POST's body_md5 must be.
      * @return array<string, string>
      */
-    protected function sign(Application $application, string $method, string $path): array
+    protected function sign(Application $application, string $method, string $path, array $extra = []): array
     {
         $params = [
             'auth_key' => $application->key(),
             'auth_timestamp' => (string) time(),
             'auth_version' => '1.0',
+            ...$extra,
         ];
 
         ksort($params);

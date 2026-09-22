@@ -2,6 +2,7 @@
 
 namespace RobertBoes\Patchbay\Filament\Resources;
 
+use Closure;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
@@ -16,6 +17,8 @@ use Filament\Forms\Components\Toggle;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Tabs;
+use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontFamily;
 use Filament\Tables\Columns\IconColumn;
@@ -24,11 +27,12 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\HtmlString;
 use RobertBoes\Patchbay\Contracts\AppSource;
-use RobertBoes\Patchbay\EnvSnippet;
 use RobertBoes\Patchbay\Filament\PatchbayPlugin;
 use RobertBoes\Patchbay\Filament\Resources\AppResource\Pages;
 use RobertBoes\Patchbay\Filament\Widgets;
+use RobertBoes\Patchbay\Snippets;
 use RobertBoes\Patchbay\Models\App;
 use RobertBoes\Patchbay\Server\AppMetrics;
 use RobertBoes\Patchbay\Server\ServerApi;
@@ -67,8 +71,8 @@ class AppResource extends Resource
                         ->columnSpanFull(),
 
                     TagsInput::make('allowed_origins')
-                        ->placeholder('https://example.com')
-                        ->helperText(__('Origins allowed to open a connection. Leave empty to allow any.'))
+                        ->placeholder('example.com')
+                        ->helperText(__('Hostnames that may connect, such as example.com or *.example.com. Leave empty to allow any.'))
                         ->columnSpanFull(),
                 ]),
 
@@ -143,16 +147,22 @@ class AppResource extends Resource
                         ->copyable(fn($livewire) => static::reveals($livewire)),
                 ]),
 
-            Section::make(__('Environment'))
-                ->description(__('Paste this into the consuming application.'))
+            Section::make(__('Connect'))
+                ->description(__('Paste into whatever connects. Reverb speaks the Pusher protocol, so any Pusher client works.'))
                 ->schema([
-                    TextEntry::make('env')
-                        ->hiddenLabel()
-                        ->fontFamily(FontFamily::Mono)
-                        ->state(fn(Model $record, $livewire) => static::reveals($livewire)
-                            ? app(EnvSnippet::class)->for($record)
-                            : __('Reveal the secret to see the full block.'))
-                        ->copyable(fn($livewire) => static::reveals($livewire)),
+                    Tabs::make()
+                        ->contained(false)
+                        ->tabs([
+                            Tab::make(__('Laravel'))->schema([
+                                static::snippetEntry('env', fn(Model $record) => app(Snippets::class)->env($record), holdsSecret: true),
+                            ]),
+                            Tab::make(__('Browser'))->schema([
+                                static::snippetEntry('browser', fn(Model $record) => app(Snippets::class)->browser($record), holdsSecret: false),
+                            ]),
+                            Tab::make(__('Server'))->schema([
+                                static::snippetEntry('server', fn(Model $record) => app(Snippets::class)->server($record), holdsSecret: true),
+                            ]),
+                        ]),
                 ]),
 
             Section::make(__('Live'))
@@ -179,6 +189,15 @@ class AppResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateIcon('heroicon-o-signal')
+            ->emptyStateHeading(__('No applications yet'))
+            ->emptyStateDescription(__('An application is a key and secret for the WebSocket server. Create one and you can connect straight away.'))
+            ->emptyStateActions([
+                Action::make('create')
+                    ->label(__('New application'))
+                    ->url(fn() => static::getUrl('create'))
+                    ->visible(fn() => static::canCreate()),
+            ])
             ->columns([
                 TextColumn::make('name')
                     ->searchable()
@@ -259,6 +278,28 @@ class AppResource extends Resource
             'view' => Pages\ViewApp::route('/{record}'),
             'edit' => Pages\EditApp::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * @param  Closure(Model): string  $snippet
+     */
+    protected static function snippetEntry(string $name, Closure $snippet, bool $holdsSecret): TextEntry
+    {
+        $hidden = fn($livewire) => $holdsSecret && ! static::reveals($livewire);
+
+        return TextEntry::make($name)
+            ->hiddenLabel()
+            ->fontFamily(FontFamily::Mono)
+            ->state(fn(Model $record, $livewire) => $hidden($livewire)
+                ? __('Reveal the secret to see this snippet.')
+                : $snippet($record))
+            // A <pre> of its own: line breaks and indentation are the content,
+            // and the entry's template whitespace must stay outside it.
+            ->formatStateUsing(fn(string $state, $livewire) => $hidden($livewire)
+                ? $state
+                : new HtmlString('<pre style="margin: 0; overflow-x: auto;">' . e($state) . '</pre>'))
+            ->copyable(fn($livewire) => ! $hidden($livewire))
+            ->copyableState(fn(Model $record) => $snippet($record));
     }
 
     protected static function connectionLimit(?Model $record): ?int

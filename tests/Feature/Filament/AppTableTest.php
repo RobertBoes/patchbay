@@ -104,4 +104,11 @@ class AppTableTest extends FilamentTestCase
 
         $this->assertDatabaseMissing('patchbay_apps', ['id' => $app->id]);
     }
+
+    public function test_an_empty_list_offers_the_first_application(): void
+    {
+        Livewire::test(ListApps::class)
+            ->assertSee('No applications yet')
+            ->assertSee('New application');
+    }
 }
