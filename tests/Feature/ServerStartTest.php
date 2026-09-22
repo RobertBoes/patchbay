@@ -4,7 +4,6 @@ namespace RobertBoes\Patchbay\Tests\Feature;
 
 use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use React\EventLoop\Loop;
 use RobertBoes\Patchbay\Models\App;
 use RobertBoes\Patchbay\Registry;
 use RobertBoes\Patchbay\Tests\TestCase;
@@ -50,9 +49,8 @@ class ServerStartTest extends TestCase
 
         $this->startServer();
 
-        $loop = Loop::get();
-        $loop->futureTick(fn() => $loop->stop());
-        $loop->run();
+        $this->loop->futureTick(fn() => $this->loop->stop());
+        $this->loop->run();
 
         $this->assertSame(3, $this->app->make(Registry::class)->count());
     }
@@ -63,9 +61,8 @@ class ServerStartTest extends TestCase
 
         event(new CommandStarting('migrate', new ArrayInput([]), new NullOutput()));
 
-        $loop = Loop::get();
-        $loop->futureTick(fn() => $loop->stop());
-        $loop->run();
+        $this->loop->futureTick(fn() => $this->loop->stop());
+        $this->loop->run();
 
         $this->assertSame(0, $this->app->make(Registry::class)->count());
     }

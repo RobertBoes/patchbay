@@ -3,20 +3,21 @@
 namespace RobertBoes\Patchbay\Tests;
 
 use Orchestra\Testbench\TestCase as Orchestra;
-use React\EventLoop\Loop;
+use React\EventLoop\LoopInterface;
 use React\EventLoop\StreamSelectLoop;
 use RobertBoes\Patchbay\PatchbayServiceProvider;
 
 abstract class TestCase extends Orchestra
 {
+    protected LoopInterface $loop;
+
     protected function setUp(): void
     {
         parent::setUp();
 
-        // ReactPHP's loop is a process-global singleton, so timers and ticks
-        // queued by one test would otherwise fire during the next one, against
-        // a container that has already been torn down.
-        Loop::set(new StreamSelectLoop());
+        $this->loop = new StreamSelectLoop();
+
+        $this->app->instance(LoopInterface::class, $this->loop);
     }
 
     protected function getPackageProviders($app): array

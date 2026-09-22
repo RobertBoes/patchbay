@@ -81,6 +81,14 @@ class App extends Model
         return Str::random(40);
     }
 
+    public static function suggestName(): string
+    {
+        $adjectives = ['calm', 'bright', 'quiet', 'swift', 'warm', 'bold', 'clear'];
+        $nouns = ['harbour', 'signal', 'meadow', 'beacon', 'river', 'summit', 'anchor'];
+
+        return $adjectives[array_rand($adjectives)] . '-' . $nouns[array_rand($nouns)];
+    }
+
     protected static function newFactory(): Factory
     {
         return \RobertBoes\Patchbay\Database\Factories\AppFactory::new();

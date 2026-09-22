@@ -10,6 +10,7 @@ use Illuminate\Contracts\Events\Dispatcher;
 use Laravel\Octane\Events\RequestReceived;
 use Laravel\Reverb\ApplicationManager;
 use React\EventLoop\Loop;
+use React\EventLoop\LoopInterface;
 use RobertBoes\Patchbay\Contracts\AppSource;
 use RobertBoes\Patchbay\Contracts\ReloadDriver;
 use RobertBoes\Patchbay\Exceptions\InvalidReloadDriver;
@@ -32,7 +33,7 @@ class PatchbayServiceProvider extends PackageServiceProvider
             ])
             ->hasCommands([
                 Console\InstallCommand::class,
-                Console\AppCommand::class,
+                Console\CreateAppCommand::class,
                 Console\StatusCommand::class,
                 Console\PruneMetricsCommand::class,
             ]);
@@ -40,6 +41,9 @@ class PatchbayServiceProvider extends PackageServiceProvider
 
     public function packageRegistered(): void
     {
+        // The loop Reverb runs. Bound so nothing else has to reach for the global.
+        $this->app->bindIf(LoopInterface::class, fn() => Loop::get());
+
         $this->app->singleton(Registry::class);
 
         $this->app->singleton(ApplicationFactory::class);
@@ -78,6 +82,7 @@ class PatchbayServiceProvider extends PackageServiceProvider
             driver: $app->make(ReloadDriver::class),
             terminator: $app->make(ConnectionTerminator::class),
             container: $app,
+            loop: $app->make(LoopInterface::class),
             config: $app['config'],
             terminateOnRevoke: (bool) $app['config']->get('patchbay.terminate_on_revoke', true),
         ));
@@ -117,7 +122,7 @@ class PatchbayServiceProvider extends PackageServiceProvider
                 // Deferred to the loop's first tick: Reverb's Log memoises the first
                 // logger it resolves, and logging before the command installs its own
                 // would pin the null logger and silence the server's --debug.
-                Loop::get()->futureTick(
+                $this->app->make(LoopInterface::class)->futureTick(
                     fn() => $this->app->make(Reloader::class)->start(),
                 );
             },

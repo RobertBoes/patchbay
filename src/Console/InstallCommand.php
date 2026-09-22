@@ -24,7 +24,7 @@ class InstallCommand extends Command
         $this->components->bulletList([
             'Run `php artisan migrate` to create the applications table.',
             'Set REVERB_PROVIDER=patchbay so Reverb reads applications from Patchbay.',
-            'Create your first application with `php artisan patchbay:app <name>`.',
+            'Create your first application with `php artisan patchbay:create-app`.',
         ]);
 
         $store = config('patchbay.reload.drivers.cache.store') ?? config('cache.default');

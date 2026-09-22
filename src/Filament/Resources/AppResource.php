@@ -28,6 +28,7 @@ use RobertBoes\Patchbay\Contracts\AppSource;
 use RobertBoes\Patchbay\EnvSnippet;
 use RobertBoes\Patchbay\Filament\Resources\AppResource\Pages;
 use RobertBoes\Patchbay\Filament\Widgets;
+use RobertBoes\Patchbay\Models\App;
 use RobertBoes\Patchbay\Server\AppMetrics;
 use RobertBoes\Patchbay\Server\ServerApi;
 
@@ -39,7 +40,7 @@ class AppResource extends Resource
 
     public static function getModel(): string
     {
-        return config('patchbay.model', \RobertBoes\Patchbay\Models\App::class);
+        return config('patchbay.model', App::class);
     }
 
     public static function getModelLabel(): string
@@ -56,7 +57,7 @@ class AppResource extends Resource
                     TextInput::make('name')
                         ->required()
                         ->maxLength(255)
-                        ->default(fn() => static::suggestName())
+                        ->default(fn() => App::suggestName())
                         ->columnSpanFull(),
 
                     Toggle::make('active')
@@ -282,13 +283,5 @@ class AppResource extends Resource
         }
 
         return $present($metrics);
-    }
-
-    protected static function suggestName(): string
-    {
-        $adjectives = ['calm', 'bright', 'quiet', 'swift', 'warm', 'bold', 'clear'];
-        $nouns = ['harbour', 'signal', 'meadow', 'beacon', 'river', 'summit', 'anchor'];
-
-        return $adjectives[array_rand($adjectives)] . '-' . $nouns[array_rand($nouns)];
     }
 }

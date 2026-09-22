@@ -8,7 +8,7 @@ use Illuminate\Contracts\Events\Dispatcher;
 use Laravel\Reverb\Events\MessageReceived;
 use Laravel\Reverb\Events\MessageSent;
 use Laravel\Reverb\Loggers\Log;
-use React\EventLoop\Loop;
+use React\EventLoop\LoopInterface;
 use RobertBoes\Patchbay\Metrics\MetricsRecorder;
 use RobertBoes\Patchbay\Contracts\AppSource;
 use RobertBoes\Patchbay\Contracts\ReloadDriver;
@@ -24,6 +24,7 @@ class Reloader
         protected ReloadDriver $driver,
         protected ConnectionTerminator $terminator,
         protected Container $container,
+        protected LoopInterface $loop,
         protected Config $config,
         protected bool $terminateOnRevoke = true,
     ) {
@@ -66,7 +67,7 @@ class Reloader
             fn(MessageReceived $event) => $recorder->messageReceived($event->connection->app()),
         );
 
-        Loop::get()->addPeriodicTimer(
+        $this->loop->addPeriodicTimer(
             max(1, (int) $this->config->get('patchbay.metrics.interval', 60)),
             fn() => $recorder->flush(),
         );

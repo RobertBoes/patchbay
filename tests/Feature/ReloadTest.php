@@ -46,6 +46,31 @@ class ReloadTest extends TestCase
         return ['changes' => $changes, 'desynced' => $desynced];
     }
 
+    public function test_listening_drains_changes_on_the_loop_it_was_given(): void
+    {
+        config()->set('patchbay.reload.drivers.cache.interval', 0);
+        config()->set('patchbay.reload.reconcile_every', null);
+        $this->app->forgetInstance(ReloadDriver::class);
+
+        $changes = [];
+
+        $this->driver()->listen(
+            function (AppChange $change) use (&$changes) {
+                $changes[] = $change;
+                $this->loop->stop();
+            },
+            fn() => null,
+        );
+
+        $app = App::create(['name' => 'test']);
+
+        $this->loop->addTimer(1, fn() => $this->loop->stop());
+        $this->loop->run();
+
+        $this->assertCount(1, $changes);
+        $this->assertSame($app->id, $changes[0]->id);
+    }
+
     public function test_creating_an_application_publishes_an_upsert(): void
     {
         $app = App::create(['name' => 'test']);

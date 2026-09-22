@@ -4,7 +4,7 @@ namespace RobertBoes\Patchbay\Reload;
 
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Contracts\Cache\Repository as Cache;
-use React\EventLoop\Loop;
+use React\EventLoop\LoopInterface;
 use React\EventLoop\TimerInterface;
 use RobertBoes\Patchbay\Contracts\ReloadDriver;
 
@@ -29,8 +29,11 @@ class CacheReloadDriver implements ReloadDriver
     /**
      * @param  array<string, mixed>  $config
      */
-    public function __construct(CacheFactory $cache, array $config = [])
-    {
+    public function __construct(
+        CacheFactory $cache,
+        protected LoopInterface $loop,
+        array $config = [],
+    ) {
         $this->cache = $cache->store($config['store'] ?? null);
         $this->prefix = $config['prefix'] ?? 'patchbay';
         $this->interval = (int) ($config['interval'] ?? 5);
@@ -64,15 +67,13 @@ class CacheReloadDriver implements ReloadDriver
     {
         $this->seen = $this->version();
 
-        $loop = Loop::get();
-
-        $this->timer = $loop->addPeriodicTimer(
+        $this->timer = $this->loop->addPeriodicTimer(
             $this->interval,
             fn() => $this->drain($onChange, $onDesync),
         );
 
         if ($this->reconcileEvery !== null) {
-            $this->reconcileTimer = $loop->addPeriodicTimer(
+            $this->reconcileTimer = $this->loop->addPeriodicTimer(
                 $this->reconcileEvery,
                 function () use ($onDesync) {
                     $this->seen = $this->version();
@@ -115,15 +116,13 @@ class CacheReloadDriver implements ReloadDriver
 
     public function stopListening(): void
     {
-        $loop = Loop::get();
-
         if ($this->timer) {
-            $loop->cancelTimer($this->timer);
+            $this->loop->cancelTimer($this->timer);
             $this->timer = null;
         }
 
         if ($this->reconcileTimer) {
-            $loop->cancelTimer($this->reconcileTimer);
+            $this->loop->cancelTimer($this->reconcileTimer);
             $this->reconcileTimer = null;
         }
     }

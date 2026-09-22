@@ -32,7 +32,7 @@ class StatusCommand extends Command
         $applications = $source->load();
 
         if ($applications->isEmpty()) {
-            $this->components->warn('No active applications. Create one with `patchbay:app`.');
+            $this->components->warn('No active applications. Create one with `patchbay:create-app`.');
 
             return self::SUCCESS;
         }

@@ -25,7 +25,15 @@ REVERB_PROVIDER=patchbay
 And create an application:
 
 ```
-php artisan patchbay:app my-app
+php artisan patchbay:create-app
+```
+
+It asks for a name, the origins allowed to connect, and whether to activate it, then
+prints the `.env` block for the consuming application. Pass any of them to skip the
+question, which is also how you script it:
+
+```
+php artisan patchbay:create-app checkout --origins=https://example.com --no-interaction
 ```
 
 ## How it works
@@ -188,7 +196,7 @@ Set `patchbay.terminate_on_revoke` to `false` to leave open connections alone.
 An application's key is public and travels to the browser. Its secret signs Pusher
 requests and never leaves the server, so it is stored encrypted rather than hashed —
 HMAC signing needs the original value back. The model hides it by default; the
-`patchbay:app` command prints it once.
+`patchbay:create-app` command prints it once.
 
 Rotating `APP_KEY` re-encrypts nothing on its own. If you rotate it, re-encrypt the
 `secret` column in the same deploy or every application will stop authenticating.
