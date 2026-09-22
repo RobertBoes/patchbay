@@ -36,7 +36,8 @@ class DebugConsole extends Widget
             // Pusher's own channel name rules.
             'channel' => ['required', 'string', 'max:164', 'regex:/^[A-Za-z0-9_\-=@,.;]+$/'],
             'event' => ['required', 'string', 'max:200'],
-            'payload' => ['required', 'json'],
+            // Pusher's own limit for an event's data.
+            'payload' => ['required', 'json', 'max:10240'],
         ]);
 
         $data = json_decode($this->payload, true);

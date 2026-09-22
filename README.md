@@ -33,8 +33,12 @@ prints the `.env` block for the consuming application. Pass any of them to skip 
 question, which is also how you script it:
 
 ```
-php artisan patchbay:create-app checkout --origins=https://example.com --no-interaction
+php artisan patchbay:create-app checkout --origins=example.com --no-interaction
 ```
+
+Origins are hostnames, `example.com` or `*.example.com`: Reverb matches them against the
+host of a connection's `Origin` header alone. One written as a URL is reduced to its
+host rather than refusing every client.
 
 ## How it works
 
@@ -90,8 +94,21 @@ until an application registers the plugin, at which point Filament is necessaril
 installed. Filament 4 and 5 are both supported; their resource APIs are identical.
 
 The application page shows live connection counts read from the running server, reveals
-the secret on request, and gives you the `.env` block to paste into the consuming
-application. Deactivating an application from here disconnects its clients.
+the secret on request, and hands out what a client needs to connect: a Laravel `.env`,
+a pusher-js browser client and a Pusher server SDK snippet, since any Pusher client
+works. Below that, the application's recorded traffic, and a debug console that sends
+an event to a channel through the server's HTTP API and shows it arriving over a live
+connection. Deactivating an application from here disconnects its clients.
+
+To bound the connection limit an application may be given, and show it on the form,
+pass a callback. It receives the application being edited, or null when one is being
+created; null back means unlimited:
+
+```php
+$panel->plugin(
+    PatchbayPlugin::make()->connectionLimit(fn (?Model $app) => auth()->user()->connectionLimit()),
+);
+```
 
 Widgets are not added to your dashboard unless you ask, since a dashboard is your page
 and not a package's:
@@ -132,6 +149,17 @@ nothing.
 ```
 php artisan patchbay:status
 ```
+
+A server can answer HTTP while holding no applications, refusing every connection. So
+the running server also writes a heartbeat to the shared cache every ten seconds,
+saying how many applications it serves, and `HealthCheck` combines the two:
+
+```php
+app(\RobertBoes\Patchbay\Server\HealthCheck::class)->status(); // Health::Operational, Degraded or Down
+```
+
+Degraded means answering but not reporting in, or serving none of the active
+applications. The status widget and `patchbay:status` both use it.
 
 Connection counts and open channels live only in the running server's memory, not in
 the database, so Patchbay asks it over Reverb's HTTP API. The address is worked out

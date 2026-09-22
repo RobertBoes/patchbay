@@ -60,6 +60,16 @@ class DebugConsoleTest extends FilamentTestCase
         Http::assertNothingSent();
     }
 
+    public function test_a_payload_over_pushers_limit_is_refused(): void
+    {
+        Livewire::test(DebugConsole::class, ['record' => App::factory()->create()])
+            ->set('payload', json_encode(['blob' => str_repeat('x', 11_000)]))
+            ->call('send')
+            ->assertHasErrors(['payload' => 'max']);
+
+        Http::assertNothingSent();
+    }
+
     public function test_a_channel_name_outside_pushers_rules_is_refused(): void
     {
         Livewire::test(DebugConsole::class, ['record' => App::factory()->create()])
