@@ -3,14 +3,17 @@
 namespace RobertBoes\Patchbay\Tests\Feature\Filament;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
+use RobertBoes\Patchbay\Filament\PatchbayPlugin;
 use RobertBoes\Patchbay\Filament\Resources\AppResource\Pages\CreateApp;
 use RobertBoes\Patchbay\Filament\Resources\AppResource\Pages\EditApp;
 use RobertBoes\Patchbay\Filament\Resources\AppResource\Pages\ListApps;
 use RobertBoes\Patchbay\Filament\Resources\AppResource\Pages\ViewApp;
 use RobertBoes\Patchbay\Models\App;
 use RobertBoes\Patchbay\Tests\FilamentTestCase;
+use RobertBoes\Patchbay\Tests\Fixtures\FlippableAppPolicy;
 
 class AppResourceTest extends FilamentTestCase
 {
@@ -60,6 +63,40 @@ class AppResourceTest extends FilamentTestCase
 
         $this->assertSame(20, strlen($app->key));
         $this->assertSame(40, strlen($app->secret));
+    }
+
+    public function test_a_configured_connection_limit_bounds_the_form(): void
+    {
+        PatchbayPlugin::current()->connectionLimit(fn() => 5);
+
+        Livewire::test(CreateApp::class)
+            ->assertSee('Up to 5.')
+            ->fillForm(['name' => 'capped', 'max_connections' => 50])
+            ->call('create')
+            ->assertHasFormErrors(['max_connections' => 'max']);
+
+        PatchbayPlugin::current()->connectionLimit(null);
+    }
+
+    public function test_a_limit_reached_after_the_page_opened_is_explained_not_forbidden(): void
+    {
+        Gate::policy(App::class, FlippableAppPolicy::class);
+
+        $page = Livewire::test(CreateApp::class)->assertOk();
+
+        // Reached from another tab while this one was open.
+        FlippableAppPolicy::$refusal = 'All 3 of your applications are in use.';
+
+        $page->fillForm(['name' => 'one too many'])
+            ->call('create')
+            ->assertDispatched(
+                'notificationSent',
+                fn(string $event, array $params) => $params['notification']['title'] === 'All 3 of your applications are in use.',
+            );
+
+        $this->assertDatabaseMissing(App::class, ['name' => 'one too many']);
+
+        FlippableAppPolicy::$refusal = null;
     }
 
     public function test_the_secret_is_hidden_until_revealed(): void

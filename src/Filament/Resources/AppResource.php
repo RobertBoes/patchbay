@@ -26,6 +26,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use RobertBoes\Patchbay\Contracts\AppSource;
 use RobertBoes\Patchbay\EnvSnippet;
+use RobertBoes\Patchbay\Filament\PatchbayPlugin;
 use RobertBoes\Patchbay\Filament\Resources\AppResource\Pages;
 use RobertBoes\Patchbay\Filament\Widgets;
 use RobertBoes\Patchbay\Models\App;
@@ -97,7 +98,11 @@ class AppResource extends Resource
                     TextInput::make('max_connections')
                         ->numeric()
                         ->minValue(1)
-                        ->placeholder(__('unlimited')),
+                        ->maxValue(fn(?Model $record) => static::connectionLimit($record))
+                        ->placeholder(fn(?Model $record) => static::connectionLimit($record) ?? __('unlimited'))
+                        ->helperText(fn(?Model $record) => static::connectionLimit($record) === null
+                            ? null
+                            : __('Up to :limit.', ['limit' => static::connectionLimit($record)])),
 
                     Select::make('accept_client_events_from')
                         ->options([
@@ -254,6 +259,11 @@ class AppResource extends Resource
             'view' => Pages\ViewApp::route('/{record}'),
             'edit' => Pages\EditApp::route('/{record}/edit'),
         ];
+    }
+
+    protected static function connectionLimit(?Model $record): ?int
+    {
+        return PatchbayPlugin::current()?->getConnectionLimit($record);
     }
 
     protected static function reveals(mixed $livewire): bool
