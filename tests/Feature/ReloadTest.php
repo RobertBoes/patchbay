@@ -4,6 +4,7 @@ namespace RobertBoes\Patchbay\Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Exceptions;
 use RobertBoes\Patchbay\Contracts\ReloadDriver;
 use RobertBoes\Patchbay\Models\App;
 use RobertBoes\Patchbay\Registry;
@@ -11,6 +12,7 @@ use RobertBoes\Patchbay\Reload\AppChange;
 use RobertBoes\Patchbay\Reload\CacheReloadDriver;
 use RobertBoes\Patchbay\Reloader;
 use RobertBoes\Patchbay\Tests\TestCase;
+use RuntimeException;
 
 class ReloadTest extends TestCase
 {
@@ -69,6 +71,32 @@ class ReloadTest extends TestCase
 
         $this->assertCount(1, $changes);
         $this->assertSame($app->id, $changes[0]->id);
+    }
+
+    public function test_a_failing_reload_does_not_stop_the_server(): void
+    {
+        Exceptions::fake();
+        config()->set('patchbay.reload.drivers.cache.interval', 0);
+        config()->set('patchbay.reload.reconcile_every', null);
+        $this->app->forgetInstance(ReloadDriver::class);
+
+        $this->driver()->listen(
+            function () {
+                $this->loop->futureTick(fn() => $this->loop->stop());
+
+                throw new RuntimeException('The database went away.');
+            },
+            fn() => null,
+        );
+
+        App::create(['name' => 'test']);
+
+        // Escaping the timer, the exception would surface from run() and, in
+        // a real server, take every connection down with it.
+        $this->loop->addTimer(1, fn() => $this->loop->stop());
+        $this->loop->run();
+
+        Exceptions::assertReported(RuntimeException::class);
     }
 
     public function test_creating_an_application_publishes_an_upsert(): void

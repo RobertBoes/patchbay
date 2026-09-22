@@ -15,6 +15,7 @@ use RobertBoes\Patchbay\Contracts\AppSource;
 use RobertBoes\Patchbay\Contracts\ReloadDriver;
 use RobertBoes\Patchbay\Exceptions\InvalidReloadDriver;
 use RobertBoes\Patchbay\Metrics\MetricsRecorder;
+use RobertBoes\Patchbay\Server\Heartbeat;
 use RobertBoes\Patchbay\Server\ServerAddress;
 use RobertBoes\Patchbay\Server\ServerApi;
 use Spatie\LaravelPackageTools\Package;
@@ -52,7 +53,16 @@ class PatchbayServiceProvider extends PackageServiceProvider
             container: $app,
             registry: $app->make(Registry::class),
             model: $app['config']->get('patchbay.metrics.model', Models\Metric::class),
-            server: $app['config']->get('patchbay.metrics.server') ?: (gethostname() ?: null),
+            server: $this->serverName(),
+        ));
+
+        $this->app->singleton(Heartbeat::class, fn($app) => new Heartbeat(
+            // The store the reload driver already requires to be shared
+            // between the panel and the server.
+            cache: $app->make(CacheFactory::class)->store(
+                $app['config']->get('patchbay.reload.drivers.cache.store'),
+            ),
+            server: $this->serverName() ?? 'default',
         ));
 
         $this->app->singleton(ServerApi::class, fn($app) => new ServerApi(
@@ -84,6 +94,7 @@ class PatchbayServiceProvider extends PackageServiceProvider
             container: $app,
             loop: $app->make(LoopInterface::class),
             config: $app['config'],
+            heartbeat: $app->make(Heartbeat::class),
             terminateOnRevoke: (bool) $app['config']->get('patchbay.terminate_on_revoke', true),
         ));
     }
@@ -139,6 +150,12 @@ class PatchbayServiceProvider extends PackageServiceProvider
             RequestReceived::class,
             fn() => $this->app->make(Registry::class)->flush(),
         );
+    }
+
+    /** Which server this process is, as recorded in metrics and heartbeats. */
+    protected function serverName(): ?string
+    {
+        return $this->app['config']->get('patchbay.metrics.server') ?: (gethostname() ?: null);
     }
 
     protected function resolveReloadDriver(Container $container): ReloadDriver

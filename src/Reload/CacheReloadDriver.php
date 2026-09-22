@@ -6,10 +6,13 @@ use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use React\EventLoop\LoopInterface;
 use React\EventLoop\TimerInterface;
+use RobertBoes\Patchbay\Concerns\SurvivesFailures;
 use RobertBoes\Patchbay\Contracts\ReloadDriver;
 
 class CacheReloadDriver implements ReloadDriver
 {
+    use SurvivesFailures;
+
     protected ?TimerInterface $timer = null;
 
     protected ?TimerInterface $reconcileTimer = null;
@@ -69,16 +72,16 @@ class CacheReloadDriver implements ReloadDriver
 
         $this->timer = $this->loop->addPeriodicTimer(
             $this->interval,
-            fn() => $this->drain($onChange, $onDesync),
+            fn() => $this->survive('reload', fn() => $this->drain($onChange, $onDesync)),
         );
 
         if ($this->reconcileEvery !== null) {
             $this->reconcileTimer = $this->loop->addPeriodicTimer(
                 $this->reconcileEvery,
-                function () use ($onDesync) {
+                fn() => $this->survive('reconcile', function () use ($onDesync) {
                     $this->seen = $this->version();
                     $onDesync();
-                },
+                }),
             );
         }
     }

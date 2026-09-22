@@ -4,6 +4,8 @@ namespace RobertBoes\Patchbay\Console;
 
 use Illuminate\Console\Command;
 use RobertBoes\Patchbay\Contracts\AppSource;
+use RobertBoes\Patchbay\Server\Health;
+use RobertBoes\Patchbay\Server\HealthCheck;
 use RobertBoes\Patchbay\Server\ServerApi;
 
 class StatusCommand extends Command
@@ -12,7 +14,7 @@ class StatusCommand extends Command
 
     protected $description = 'Show the Reverb server status and what each application is doing';
 
-    public function handle(ServerApi $server, AppSource $source): int
+    public function handle(ServerApi $server, AppSource $source, HealthCheck $health): int
     {
         if (! $server->isRunning()) {
             $this->components->error('The Reverb server is not reachable.');
@@ -27,7 +29,14 @@ class StatusCommand extends Command
             return self::FAILURE;
         }
 
-        $this->components->info('The Reverb server is running.');
+        if ($health->status() === Health::Degraded) {
+            $this->components->warn(
+                'The Reverb server answers, but is not reporting in or serves none of the active applications. '
+                . 'Check its output, then restart it.',
+            );
+        } else {
+            $this->components->info('The Reverb server is running.');
+        }
 
         $applications = $source->load();
 

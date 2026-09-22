@@ -9,13 +9,17 @@ use Laravel\Reverb\Events\MessageReceived;
 use Laravel\Reverb\Events\MessageSent;
 use Laravel\Reverb\Loggers\Log;
 use React\EventLoop\LoopInterface;
+use RobertBoes\Patchbay\Concerns\SurvivesFailures;
 use RobertBoes\Patchbay\Metrics\MetricsRecorder;
 use RobertBoes\Patchbay\Contracts\AppSource;
 use RobertBoes\Patchbay\Contracts\ReloadDriver;
 use RobertBoes\Patchbay\Reload\AppChange;
+use RobertBoes\Patchbay\Server\Heartbeat;
 
 class Reloader
 {
+    use SurvivesFailures;
+
     protected bool $listening = false;
 
     public function __construct(
@@ -26,6 +30,7 @@ class Reloader
         protected Container $container,
         protected LoopInterface $loop,
         protected Config $config,
+        protected Heartbeat $heartbeat,
         protected bool $terminateOnRevoke = true,
     ) {
         //
@@ -39,10 +44,11 @@ class Reloader
 
         $this->reloadAll();
         $this->recordMetrics();
+        $this->beat();
 
         $this->driver->listen(
-            fn(AppChange $change) => $this->apply($change),
-            fn() => $this->reloadAll(),
+            fn(AppChange $change) => $this->survive('reload', fn() => $this->apply($change)),
+            fn() => $this->survive('reload', fn() => $this->reloadAll()),
         );
 
         $this->listening = true;
@@ -69,8 +75,17 @@ class Reloader
 
         $this->loop->addPeriodicTimer(
             max(1, (int) $this->config->get('patchbay.metrics.interval', 60)),
-            fn() => $recorder->flush(),
+            fn() => $this->survive('metrics', fn() => $recorder->flush()),
         );
+    }
+
+    protected function beat(): void
+    {
+        $beat = fn() => $this->survive('heartbeat', fn() => $this->heartbeat->beat($this->registry->count()));
+
+        $beat();
+
+        $this->loop->addPeriodicTimer(Heartbeat::INTERVAL, $beat);
     }
 
     public function stop(): void

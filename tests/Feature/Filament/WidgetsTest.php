@@ -11,6 +11,7 @@ use RobertBoes\Patchbay\Filament\Widgets\ConnectionsChart;
 use RobertBoes\Patchbay\Filament\Widgets\ServerStatus;
 use RobertBoes\Patchbay\Models\App;
 use RobertBoes\Patchbay\Models\Metric;
+use RobertBoes\Patchbay\Server\Heartbeat;
 use RobertBoes\Patchbay\Tests\FilamentTestCase;
 
 class WidgetsTest extends FilamentTestCase
@@ -43,6 +44,16 @@ class WidgetsTest extends FilamentTestCase
         App::factory()->count(2)->create();
 
         Livewire::test(ServerStatus::class)->assertOk();
+    }
+
+    public function test_the_status_widget_reports_a_server_serving_nothing(): void
+    {
+        App::factory()->create();
+        app(Heartbeat::class)->beat(0);
+
+        Livewire::test(ServerStatus::class)
+            ->assertSee('Degraded')
+            ->assertSee('Answering, but not serving applications');
     }
 
     public function test_the_connection_count_costs_no_request_per_application(): void

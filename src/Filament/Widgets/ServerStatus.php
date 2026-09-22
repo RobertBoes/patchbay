@@ -8,20 +8,23 @@ use Illuminate\Support\Collection;
 use RobertBoes\Patchbay\Models\App;
 use RobertBoes\Patchbay\Models\Metric;
 use RobertBoes\Patchbay\Server\ServerAddress;
-use RobertBoes\Patchbay\Server\ServerApi;
+use RobertBoes\Patchbay\Server\Health;
+use RobertBoes\Patchbay\Server\HealthCheck;
 
 class ServerStatus extends StatsOverviewWidget
 {
     protected function getStats(): array
     {
-        $running = app(ServerApi::class)->isRunning();
+        $health = app(HealthCheck::class)->status();
         $apps = config('patchbay.model', App::class);
 
         return [
-            Stat::make(__('Server'), $running ? __('Running') : __('Unreachable'))
-                ->description(app(ServerAddress::class)->url())
-                ->color($running ? 'success' : 'danger')
-                ->icon($running ? 'heroicon-m-signal' : 'heroicon-m-signal-slash'),
+            Stat::make(__('Server'), $health->label())
+                ->description($health === Health::Degraded
+                    ? __('Answering, but not serving applications')
+                    : app(ServerAddress::class)->url())
+                ->color($health->color())
+                ->icon($health === Health::Down ? 'heroicon-m-signal-slash' : 'heroicon-m-signal'),
 
             Stat::make(__('Active applications'), $apps::query()->where('active', true)->count())
                 ->description(__(':total in total', ['total' => $apps::query()->count()]))
