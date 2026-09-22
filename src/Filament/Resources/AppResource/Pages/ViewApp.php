@@ -8,6 +8,7 @@ use Filament\Actions\EditAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use RobertBoes\Patchbay\Filament\Resources\AppResource;
+use RobertBoes\Patchbay\Filament\Widgets;
 use RobertBoes\Patchbay\Models\App;
 
 class ViewApp extends ViewRecord
@@ -22,6 +23,14 @@ class ViewApp extends ViewRecord
 
         // pull() consumes the handover, so a refresh does not repeat it.
         $this->secretRevealed = session()->pull('patchbay.reveal') === $this->record->getKey();
+    }
+
+    protected function getFooterWidgets(): array
+    {
+        return [
+            Widgets\AppStats::class,
+            Widgets\AppConnectionsChart::class,
+        ];
     }
 
     protected function getHeaderActions(): array

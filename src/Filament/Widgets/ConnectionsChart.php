@@ -3,6 +3,7 @@
 namespace RobertBoes\Patchbay\Filament\Widgets;
 
 use Filament\Widgets\ChartWidget;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use RobertBoes\Patchbay\Models\Metric;
 
@@ -20,11 +21,17 @@ class ConnectionsChart extends ChartWidget
         return max(30, (int) config('patchbay.metrics.interval', 60)) . 's';
     }
 
-    protected function getData(): array
+    /** The samples this chart draws, narrowed by subclasses. */
+    protected function metricsQuery(): Builder
     {
         $model = config('patchbay.metrics.model', Metric::class);
 
-        $samples = $model::query()
+        return $model::query();
+    }
+
+    protected function getData(): array
+    {
+        $samples = $this->metricsQuery()
             ->where('recorded_at', '>=', Carbon::now()->subDay())
             ->orderBy('recorded_at')
             ->get()
