@@ -93,12 +93,20 @@ Filament is not a dependency of this package — nothing in `src/Filament` is re
 until an application registers the plugin, at which point Filament is necessarily
 installed. Filament 4 and 5 are both supported; their resource APIs are identical.
 
-The application page shows live connection counts read from the running server, reveals
-the secret on request, and hands out what a client needs to connect: a Laravel `.env`,
-a pusher-js browser client and a Pusher server SDK snippet, since any Pusher client
-works. Below that, the application's recorded traffic, and a debug console that sends
-an event to a channel through the server's HTTP API and shows it arriving over a live
-connection. Deactivating an application from here disconnects its clients.
+The application page shows live connection counts read from the running server, with
+each open channel and how many are on it — people for presence channels, sockets for
+the rest. It reveals the secret on request, and hands out what a client needs to
+connect: a Laravel `.env`, a pusher-js browser client and a Pusher server SDK snippet,
+since any Pusher client works. Below that, the application's recorded traffic, a log of
+the events it carried, and a debug console that sends an event to a channel through the
+server's HTTP API and shows it arriving over a live connection, private and presence
+channels included — the panel signs those subscriptions with the secret it already
+holds.
+
+Deactivating an application from here disconnects its clients, and a single user's
+connections can be closed without touching anyone else's. That ends a session rather
+than barring anyone: the client is free to reconnect, and deactivating is what keeps
+them out.
 
 To bound the connection limit an application may be given, and show it on the form,
 pass a callback. It receives the application being edited, or null when one is being
@@ -143,6 +151,55 @@ Schedule that alongside your other pruning. Samples older than
 `patchbay.metrics.retain_days` are removed; one application recorded every minute
 produces about 43,000 rows a month. Set `PATCHBAY_METRICS_ENABLED=false` to record
 nothing.
+
+## The event log
+
+Counts answer how much went through. The log answers what, which is the question you
+have when something did not arrive.
+
+Each event an application carried is kept with its name, channel and payload, recorded
+in the server beside the metrics and written in one statement rather than one per
+frame. The buffer is capped by `patchbay.events.buffer`, so a burst costs a bounded
+amount of memory and drops the oldest rather than growing without end.
+
+```
+php artisan patchbay:prune-events
+```
+
+Schedule that more often than the metrics pruning: a busy server writes a row per
+message, so the default one day of retention arrives a good deal faster than a day of
+samples. `PATCHBAY_EVENTS_ENABLED=false` records nothing.
+
+Payloads are whatever your application happens to send. They are cut to
+`PATCHBAY_EVENT_PAYLOAD_LENGTH` characters, and `PATCHBAY_EVENT_PAYLOADS=false` keeps
+the names and channels without the contents.
+
+**What is not recorded.** Connecting, subscribing and staying alive are what the
+protocol costs, not traffic an application produced — `pusher:ping`, `pusher:subscribe`,
+`pusher_internal:subscription_succeeded` and the rest are left out of both the log and
+the counts. A connection that has carried nothing reports nothing.
+
+## Live figures
+
+The panel connects to the server like any other client, so figures follow the server
+rather than a timer. That needs an application of its own, which Patchbay holds in
+memory rather than storing: it has no row, no quota and no place in any listing, and it
+is left out of traffic figures and of the count that decides whether a server is
+degraded — watching must not look like serving.
+
+Its key and secret are derived from your `APP_KEY`, so every process that has the key
+agrees on them without coordinating, and rotating the key rotates these with it.
+
+A reading is pushed only when it differs from the last one, so a panel left open on an
+idle server costs nothing. `PATCHBAY_INTERNAL_INTERVAL` decides how often the server
+looks; it is deliberately separate from the metrics interval, which decides how much is
+stored rather than how fresh the screen is.
+
+> **One server.** The panel holds one connection to one server, so it sees that
+> server's readings. Metrics are recorded per server and the stored figures still cover
+> a fleet; the live ones do not, unless Reverb's scaling is enabled so that a push
+> reaches every server's clients. `PATCHBAY_INTERNAL_APP=false` turns this off and the
+> panel falls back to asking on a timer.
 
 ## Seeing what the server is doing
 

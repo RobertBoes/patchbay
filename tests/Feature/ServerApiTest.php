@@ -96,6 +96,149 @@ class ServerApiTest extends TestCase
         $this->assertSame(2, $metrics->channelCount());
     }
 
+    public function test_it_reads_how_many_are_on_each_channel(): void
+    {
+        Http::fake([
+            '*/channels*' => Http::response(['channels' => [
+                'orders' => ['subscription_count' => 3],
+                'presence-chat' => ['user_count' => 2],
+            ]]),
+            '*/connections*' => Http::response(['connections' => 5]),
+        ]);
+
+        $metrics = $this->api()->metrics($this->application());
+
+        $this->assertSame(3, $metrics->subscribersFor('orders'));
+        $this->assertSame(2, $metrics->subscribersFor('presence-chat'));
+        $this->assertNull($metrics->subscribersFor('nothing-here'));
+    }
+
+    public function test_it_asks_the_server_for_those_counts(): void
+    {
+        $query = $this->channelsRequestQuery($this->application());
+
+        $this->assertSame('subscription_count,user_count', $query['info'] ?? null);
+    }
+
+    public function test_the_counts_are_signed_for_or_the_server_refuses_them(): void
+    {
+        // The signature covers every query parameter, so info left out of it
+        // would have the server reject the request rather than ignore it.
+        $application = $this->application();
+        $query = $this->channelsRequestQuery($application);
+
+        $signature = $query['auth_signature'] ?? null;
+        unset($query['auth_signature']);
+        ksort($query);
+
+        $canonical = implode('&', array_map(
+            fn(string $key, string $value) => "{$key}={$value}",
+            array_keys($query),
+            $query,
+        ));
+
+        $this->assertSame(
+            hash_hmac(
+                'sha256',
+                implode("\n", ['GET', "/apps/{$application->id()}/channels", $canonical]),
+                $application->secret(),
+            ),
+            $signature,
+        );
+    }
+
+    /**
+     * The query the channels request actually went out with. assertSent is
+     * satisfied by any one request, so the connections call would answer for
+     * this one; the recording is read directly instead.
+     *
+     * @return array<string, string>
+     */
+    protected function channelsRequestQuery(Application $application): array
+    {
+        Http::fake([
+            '*/channels*' => Http::response(['channels' => []]),
+            '*/connections*' => Http::response(['connections' => 0]),
+        ]);
+
+        $this->api()->metrics($application);
+
+        $urls = collect(Http::recorded())
+            ->map(fn(array $pair) => (string) $pair[0]->url())
+            ->filter(fn(string $url) => str_contains($url, '/channels'))
+            ->values();
+
+        $this->assertCount(1, $urls, 'Expected exactly one channels request.');
+
+        parse_str((string) parse_url($urls->first(), PHP_URL_QUERY), $query);
+
+        return $query;
+    }
+
+    public function test_the_channel_summary_puts_the_busiest_first(): void
+    {
+        Http::fake([
+            '*/channels*' => Http::response(['channels' => [
+                'quiet' => ['subscription_count' => 1],
+                'busy' => ['subscription_count' => 9],
+                'presence-room' => ['user_count' => 4],
+            ]]),
+            '*/connections*' => Http::response(['connections' => 14]),
+        ]);
+
+        $summary = $this->api()->metrics($this->application())->channelSummary();
+
+        $this->assertSame(['busy', 'presence-room', 'quiet'], array_column($summary, 'name'));
+        $this->assertSame([9, 4, 1], array_column($summary, 'subscribers'));
+        $this->assertSame([false, true, false], array_column($summary, 'presence'));
+    }
+
+    public function test_it_reads_who_is_on_a_presence_channel(): void
+    {
+        Http::fake(['*/users*' => Http::response(['users' => [['id' => '7'], ['id' => '9']]])]);
+
+        $this->assertSame(
+            ['7', '9'],
+            $this->api()->channelUsers($this->application(), 'presence-chat'),
+        );
+    }
+
+    public function test_a_channel_that_keeps_no_identities_reports_nothing(): void
+    {
+        // The server answers 400 for a channel that is not presence.
+        Http::fake(['*/users*' => Http::response('{}', 400)]);
+
+        $this->assertNull($this->api()->channelUsers($this->application(), 'orders'));
+    }
+
+    public function test_it_terminates_the_connections_a_user_holds(): void
+    {
+        Http::fake(['*' => Http::response('{}', 200)]);
+
+        $application = $this->application();
+
+        $this->assertTrue($this->api()->terminateUser($application, '7'));
+
+        Http::assertSent(fn(Request $request) => $request->method() === 'POST'
+            && str_contains($request->url(), "/apps/{$application->id()}/users/7/terminate_connections")
+            && str_contains($request->url(), 'auth_signature=')
+            && str_contains($request->url(), 'body_md5=' . md5('{}')));
+    }
+
+    public function test_a_refused_termination_reports_failure(): void
+    {
+        Http::fake(['*' => Http::response('', 404)]);
+
+        $this->assertFalse($this->api()->terminateUser($this->application(), '7'));
+    }
+
+    public function test_an_unreachable_server_cannot_terminate(): void
+    {
+        Http::fake(fn() => throw new \Illuminate\Http\Client\ConnectionException('refused'));
+
+        $this->assertFalse($this->api()->terminateUser($this->application(), '7'));
+    }
+
     public function test_an_unreachable_server_is_unavailable_rather_than_zero(): void
     {
         Http::fake(fn() => throw new \Illuminate\Http\Client\ConnectionException('refused'));

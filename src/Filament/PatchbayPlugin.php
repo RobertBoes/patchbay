@@ -69,6 +69,7 @@ class PatchbayPlugin implements Plugin
     public function widgets(?array $widgets = null): static
     {
         $this->dashboardWidgets = $widgets ?? [
+            Widgets\LiveUpdates::class,
             Widgets\ServerStatus::class,
             Widgets\ConnectionsChart::class,
         ];

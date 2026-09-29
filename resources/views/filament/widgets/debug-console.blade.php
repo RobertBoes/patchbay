@@ -41,6 +41,17 @@
                             enabledTransports: ['ws', 'wss'],
                             disableStats: true,
                             cluster: '',
+                            {{-- Private and presence channels are signed by this page, which
+                                 holds the application's secret already. --}}
+                            authorizer: (channel) => ({
+                                authorize: (socketId, callback) => {
+                                    $wire.authorizeChannel(socketId, channel.name)
+                                        .then((auth) => auth
+                                            ? callback(null, auth)
+                                            : callback(new Error('unauthorized'), null))
+                                        .catch((error) => callback(error, null))
+                                },
+                            }),
                         })
 
                         this.pusher.connection.bind('state_change', ({ current }) => this.state = current)
@@ -72,13 +83,17 @@
                             this.subscribed = null
                         }
 
-                        {{-- Private and presence channels need an auth endpoint the dashboard does not have. --}}
-                        if (! channel || /^(private|presence)-/.test(channel)) {
+                        if (! channel) {
                             return
                         }
 
                         this.subscribed = channel
-                        this.pusher.subscribe(channel).bind_global((event, data) => {
+                        const subscription = this.pusher.subscribe(channel)
+
+                        subscription.bind('pusher:subscription_error', () => this.subscriptionFailed(channel))
+                        subscription.bind('pusher:subscription_succeeded', () => this.error = null)
+
+                        subscription.bind_global((event, data) => {
                             if (event.startsWith('pusher:') || event.startsWith('pusher_internal:')) {
                                 return
                             }
@@ -93,6 +108,11 @@
 
                             this.events = this.events.slice(0, 50)
                         })
+                    },
+
+                    subscriptionFailed(channel) {
+                        this.error = @js(__('Could not subscribe to :channel. Activate the application, and check the channel name.'))
+                            .replace(':channel', channel)
                     },
 
                     explain(error) {

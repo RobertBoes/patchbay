@@ -93,6 +93,81 @@ class DebugConsoleTest extends FilamentTestCase
         Http::assertSentCount(DebugConsole::SENDS_PER_MINUTE);
     }
 
+    protected function authorize(App $app, string $socketId, string $channel): ?array
+    {
+        return Livewire::test(DebugConsole::class, ['record' => $app])
+            ->instance()
+            ->authorizeChannel($socketId, $channel);
+    }
+
+    public function test_it_signs_a_private_channel_the_way_the_server_checks_it(): void
+    {
+        $app = App::factory()->create();
+
+        $auth = $this->authorize($app, '123.456', 'private-orders');
+
+        $this->assertSame(
+            $app->key . ':' . hash_hmac('sha256', '123.456:private-orders', $app->secret),
+            $auth['auth'],
+        );
+        $this->assertArrayNotHasKey('channel_data', $auth);
+    }
+
+    public function test_a_presence_channel_is_signed_with_who_joined(): void
+    {
+        $app = App::factory()->create();
+
+        $auth = $this->authorize($app, '123.456', 'presence-chat');
+
+        $this->assertArrayHasKey('channel_data', $auth);
+        $this->assertSame(
+            $app->key . ':' . hash_hmac('sha256', '123.456:presence-chat:' . $auth['channel_data'], $app->secret),
+            $auth['auth'],
+        );
+        $this->assertArrayHasKey('user_id', json_decode($auth['channel_data'], true));
+    }
+
+    public function test_a_public_channel_is_not_signed_for(): void
+    {
+        $app = App::factory()->create();
+
+        $this->assertNull($this->authorize($app, '123.456', 'orders'));
+    }
+
+    public function test_a_socket_id_that_is_not_one_is_refused(): void
+    {
+        $app = App::factory()->create();
+
+        $this->assertNull($this->authorize($app, 'not-a-socket', 'private-orders'));
+        $this->assertNull($this->authorize($app, '1.2; DROP', 'private-orders'));
+    }
+
+    public function test_a_channel_name_outside_pushers_rules_is_not_signed_for(): void
+    {
+        $app = App::factory()->create();
+
+        $this->assertNull($this->authorize($app, '123.456', 'private-with spaces'));
+        $this->assertNull($this->authorize($app, '123.456', 'private-' . str_repeat('x', 200)));
+    }
+
+    public function test_an_inactive_application_is_not_signed_for(): void
+    {
+        $app = App::factory()->create(['active' => false]);
+
+        $this->assertNull($this->authorize($app, '123.456', 'private-orders'));
+    }
+
+    public function test_signing_is_rate_limited(): void
+    {
+        $app = App::factory()->create();
+
+        foreach (range(1, DebugConsole::SENDS_PER_MINUTE) as $ignored) {
+            $this->assertNotNull($this->authorize($app, '123.456', 'private-orders'));
+        }
+
+        $this->assertNull($this->authorize($app, '123.456', 'private-orders'));
+    }
+
     public function test_an_inactive_application_sends_nothing(): void
     {
         $app = App::factory()->inactive()->create();

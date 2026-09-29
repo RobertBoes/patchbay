@@ -10,7 +10,11 @@ use RobertBoes\Patchbay\Contracts\AppSource;
 use RobertBoes\Patchbay\Metrics\MetricsRecorder;
 use RobertBoes\Patchbay\Models\App;
 use RobertBoes\Patchbay\Models\Metric;
+use Laravel\Reverb\Events\MessageReceived;
+use Laravel\Reverb\Events\MessageSent;
 use RobertBoes\Patchbay\Registry;
+use RobertBoes\Patchbay\Reloader;
+use RobertBoes\Patchbay\Tests\Fixtures\FakeConnection;
 use RobertBoes\Patchbay\Tests\TestCase;
 
 class MetricsRecorderTest extends TestCase
@@ -148,5 +152,34 @@ class MetricsRecorderTest extends TestCase
         $this->artisan('patchbay:prune-metrics', ['--days' => 7])->assertSuccessful();
 
         $this->assertSame(1, Metric::query()->count());
+    }
+
+    public function test_protocol_messages_are_not_counted_as_traffic(): void
+    {
+        $this->fakeChannels(connections: 1, channels: 1);
+
+        $application = $this->load(App::create(['name' => 'one']));
+
+        $connection = new FakeConnection($application);
+
+        $this->app->make(Reloader::class)->start();
+
+        $events = $this->app->make(\Illuminate\Contracts\Events\Dispatcher::class);
+
+        $events->dispatch(new MessageSent($connection, '{"event":"pusher:ping","data":{}}'));
+        $events->dispatch(new MessageReceived($connection, '{"event":"pusher:pong","data":{}}'));
+
+        $events->dispatch(new MessageSent($connection, '{"event":"pusher:connection_established","data":{}}'));
+        $events->dispatch(new MessageSent($connection, '{"event":"pusher_internal:subscription_succeeded","channel":"test"}'));
+        $events->dispatch(new MessageReceived($connection, '{"event":"pusher:subscribe","data":{"auth":"","channel":"test"}}'));
+
+        $events->dispatch(new MessageSent($connection, '{"event":"OrderShipped","data":{}}'));
+        $events->dispatch(new MessageReceived($connection, '{"event":"client-typing","data":{}}'));
+
+        $this->recorder()->flush();
+
+        $metric = Metric::query()->firstOrFail();
+        $this->assertSame(1, $metric->messages_sent);
+        $this->assertSame(1, $metric->messages_received);
     }
 }

@@ -178,10 +178,8 @@ class AppResource extends Resource
 
                     TextEntry::make('channels')
                         ->label(__('Open channels'))
-                        ->state(fn(Model $record) => static::describe(
-                            $record,
-                            fn(AppMetrics $metrics) => implode(', ', $metrics->channelNames()) ?: __('None'),
-                        )),
+                        ->listWithLineBreaks()
+                        ->state(fn(Model $record) => static::describeChannels($record)),
                 ]),
         ]);
     }
@@ -310,6 +308,45 @@ class AppResource extends Resource
     protected static function reveals(mixed $livewire): bool
     {
         return $livewire instanceof Pages\ViewApp && $livewire->secretRevealed;
+    }
+
+    /**
+     * Each open channel with the number on it. Presence channels count the
+     * people in them and the rest count sockets, so the wording follows the
+     * kind rather than pretending they measure the same thing.
+     *
+     * Always a list: the entry renders one, and a bare string reaches it as
+     * an empty one.
+     *
+     * @return array<int, string>
+     */
+    protected static function describeChannels(Model $record): array
+    {
+        $summary = null;
+
+        $state = static::describe($record, function (AppMetrics $metrics) use (&$summary) {
+            $summary = $metrics->channelSummary();
+
+            return '';
+        });
+
+        if ($summary === null) {
+            return [$state];
+        }
+
+        if ($summary === []) {
+            return [__('None')];
+        }
+
+        return array_map(function (array $channel) {
+            if ($channel['subscribers'] === null) {
+                return $channel['name'];
+            }
+
+            return $channel['name'] . ' — ' . ($channel['presence']
+                ? trans_choice('{1} 1 member|[2,*] :count members', $channel['subscribers'], ['count' => $channel['subscribers']])
+                : trans_choice('{1} 1 subscriber|[2,*] :count subscribers', $channel['subscribers'], ['count' => $channel['subscribers']]));
+        }, $summary);
     }
 
     /**

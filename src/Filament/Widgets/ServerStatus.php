@@ -13,6 +13,18 @@ use RobertBoes\Patchbay\Server\HealthCheck;
 
 class ServerStatus extends StatsOverviewWidget
 {
+    /**
+     * A reading differing from the last one reaches the panel over the
+     * server's own WebSocket, and this re-reads rather than waiting for the
+     * next poll.
+     *
+     * @return array<string, string>
+     */
+    protected function getListeners(): array
+    {
+        return ['patchbay-stats-changed' => '$refresh'];
+    }
+
     protected function getStats(): array
     {
         $health = app(HealthCheck::class)->status();

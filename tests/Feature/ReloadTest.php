@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Exceptions;
 use RobertBoes\Patchbay\Contracts\ReloadDriver;
 use RobertBoes\Patchbay\Models\App;
+use RobertBoes\Patchbay\Internal\InternalApp;
 use RobertBoes\Patchbay\Registry;
 use RobertBoes\Patchbay\Reload\AppChange;
 use RobertBoes\Patchbay\Reload\CacheReloadDriver;
@@ -232,6 +233,46 @@ class ReloadTest extends TestCase
 
         $registry = $this->app->make(Registry::class);
         $this->assertTrue($registry->isComplete());
+        $this->assertSame(3, $this->reloader()->applicationCount());
+    }
+
+    public function test_the_panel_has_an_application_of_its_own_that_is_not_counted_as_one(): void
+    {
+        App::factory()->count(3)->create();
+
+        $this->reloader()->reloadAll();
+
+        $registry = $this->app->make(Registry::class);
+        $internal = $this->app->make(InternalApp::class);
+
+        // Reverb has to be able to resolve it, or the panel cannot connect.
+        $this->assertNotNull($registry->findById(InternalApp::ID));
+        $this->assertNotNull($registry->findByKey($internal->key()));
+
+        // A server holding none of yours is degraded, and this must not hide it.
+        $this->assertSame(4, $registry->count());
+        $this->assertSame(3, $this->reloader()->applicationCount());
+    }
+
+    public function test_it_survives_a_reload_that_would_otherwise_drop_it(): void
+    {
+        $this->reloader()->reloadAll();
+        $this->reloader()->reloadAll();
+
+        $this->assertNotNull($this->app->make(Registry::class)->findById(InternalApp::ID));
+    }
+
+    public function test_turning_it_off_leaves_the_registry_to_your_applications(): void
+    {
+        config()->set('patchbay.internal.enabled', false);
+
+        App::factory()->count(3)->create();
+
+        $this->reloader()->reloadAll();
+
+        $registry = $this->app->make(Registry::class);
+        $this->assertNull($registry->findById(InternalApp::ID));
         $this->assertSame(3, $registry->count());
+        $this->assertSame(3, $this->reloader()->applicationCount());
     }
 }

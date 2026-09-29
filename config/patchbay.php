@@ -1,6 +1,7 @@
 <?php
 
 use RobertBoes\Patchbay\Models\App;
+use RobertBoes\Patchbay\Models\Event;
 use RobertBoes\Patchbay\Models\Metric;
 use RobertBoes\Patchbay\Reload\CacheReloadDriver;
 use RobertBoes\Patchbay\Reload\NullReloadDriver;
@@ -163,6 +164,78 @@ return [
         // Samples older than this are removed by `patchbay:prune-metrics`.
         // Set to null to keep them forever.
         'retain_days' => env('PATCHBAY_METRICS_RETAIN_DAYS', 7),
+
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Internal Application
+    |--------------------------------------------------------------------------
+    |
+    | The panel connects to the server like any other client so that figures
+    | can be pushed to it as they change rather than polled for. That needs an
+    | application of its own, which is held in memory rather than stored: it
+    | has no row, no quota and no place in any listing, and it is left out of
+    | traffic figures so that watching does not look like traffic.
+    |
+    | Its key and secret are derived from your APP_KEY, so every process that
+    | has the key agrees on them, and rotating the key rotates these with it.
+    |
+    | Turned off, the panel falls back to asking on a timer.
+    |
+    */
+
+    'internal' => [
+
+        'enabled' => env('PATCHBAY_INTERNAL_APP', true),
+
+        // How often the server pushes a reading, in seconds. This is what the
+        // panel's live figures cost, so it is deliberately not the metrics
+        // interval: that decides how much is stored, this decides how fresh
+        // the screen is.
+        'interval' => env('PATCHBAY_INTERNAL_INTERVAL', 2),
+
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Event Log
+    |--------------------------------------------------------------------------
+    |
+    | The last events each application carried, so the panel can answer what
+    | went out and what came back rather than only how much did. Buffered in
+    | the server and written on the metrics timer, because a write for every
+    | frame would put the database in the path of every message.
+    |
+    | Protocol messages are never recorded: connecting, subscribing and
+    | staying alive are what the protocol costs, not what an application sent.
+    |
+    */
+
+    'events' => [
+
+        'enabled' => env('PATCHBAY_EVENTS_ENABLED', true),
+
+        'model' => Event::class,
+
+        'table' => 'patchbay_events',
+
+        // Payloads are the point of a log you read while debugging, but they
+        // are also whatever your application happens to send. Turn this off to
+        // keep the names and channels without the contents.
+        'payloads' => env('PATCHBAY_EVENT_PAYLOADS', true),
+
+        // Longer payloads are cut to this many characters.
+        'payload_length' => env('PATCHBAY_EVENT_PAYLOAD_LENGTH', 1000),
+
+        // How many events one server holds between writes. A burst past this
+        // drops the oldest, so memory stays bounded and what survives is
+        // whatever happened most recently.
+        'buffer' => env('PATCHBAY_EVENT_BUFFER', 500),
+
+        // Events older than this are removed by `patchbay:prune-events`.
+        // Set to null to keep them forever.
+        'retain_days' => env('PATCHBAY_EVENTS_RETAIN_DAYS', 1),
 
     ],
 

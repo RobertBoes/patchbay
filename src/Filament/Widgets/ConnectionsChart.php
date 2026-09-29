@@ -21,6 +21,18 @@ class ConnectionsChart extends ChartWidget
         return max(30, (int) config('patchbay.metrics.interval', 60)) . 's';
     }
 
+    /**
+     * A reading differing from the last one reaches the panel over the
+     * server's own WebSocket, and this re-reads rather than waiting for the
+     * next poll.
+     *
+     * @return array<string, string>
+     */
+    protected function getListeners(): array
+    {
+        return ['patchbay-stats-changed' => '$refresh'];
+    }
+
     /** The samples this chart draws, narrowed by subclasses. */
     protected function metricsQuery(): Builder
     {

@@ -32,12 +32,14 @@ class PatchbayServiceProvider extends PackageServiceProvider
             ->hasMigrations([
                 'create_patchbay_apps_table',
                 'create_patchbay_metrics_table',
+                'create_patchbay_events_table',
             ])
             ->hasCommands([
                 Console\InstallCommand::class,
                 Console\CreateAppCommand::class,
                 Console\StatusCommand::class,
                 Console\PruneMetricsCommand::class,
+                Console\PruneEventsCommand::class,
             ]);
     }
 
@@ -50,11 +52,33 @@ class PatchbayServiceProvider extends PackageServiceProvider
 
         $this->app->singleton(ApplicationFactory::class);
 
+        $this->app->singleton(Internal\InternalApp::class, fn($app) => new Internal\InternalApp(
+            config: $app['config'],
+            factory: $app->make(ApplicationFactory::class),
+        ));
+
+
         $this->app->singleton(MetricsRecorder::class, fn($app) => new MetricsRecorder(
             container: $app,
             registry: $app->make(Registry::class),
             model: $app['config']->get('patchbay.metrics.model', Models\Metric::class),
+            internal: $app->make(Internal\InternalApp::class),
             server: $this->serverName(),
+        ));
+
+        $this->app->singleton(Metrics\EventRecorder::class, fn($app) => new Metrics\EventRecorder(
+            model: $app['config']->get('patchbay.events.model', Models\Event::class),
+            server: $this->serverName(),
+            limit: (int) $app['config']->get('patchbay.events.buffer', 500),
+            payloadLength: (int) $app['config']->get('patchbay.events.payload_length', 1000),
+            recordsPayloads: (bool) $app['config']->get('patchbay.events.payloads', true),
+        ));
+
+        $this->app->singleton(Internal\StatsBroadcaster::class, fn($app) => new Internal\StatsBroadcaster(
+            container: $app,
+            registry: $app->make(Registry::class),
+            internal: $app->make(Internal\InternalApp::class),
+            recorder: $app->make(MetricsRecorder::class),
         ));
 
         $this->app->singleton(Heartbeat::class, fn($app) => new Heartbeat(
@@ -96,6 +120,7 @@ class PatchbayServiceProvider extends PackageServiceProvider
             loop: $app->make(LoopInterface::class),
             config: $app['config'],
             heartbeat: $app->make(Heartbeat::class),
+            internal: $app->make(Internal\InternalApp::class),
             terminateOnRevoke: (bool) $app['config']->get('patchbay.terminate_on_revoke', true),
         ));
     }

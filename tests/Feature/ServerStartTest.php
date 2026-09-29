@@ -52,7 +52,7 @@ class ServerStartTest extends TestCase
         $this->loop->futureTick(fn() => $this->loop->stop());
         $this->loop->run();
 
-        $this->assertSame(3, $this->app->make(Registry::class)->count());
+        $this->assertSame(3, $this->app->make(\RobertBoes\Patchbay\Reloader::class)->applicationCount());
     }
 
     public function test_it_ignores_other_commands(): void

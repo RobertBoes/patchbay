@@ -45,7 +45,13 @@ class ServerApi
 
     public function metrics(Application $application): AppMetrics
     {
-        $channels = $this->get($application, "/apps/{$application->id()}/channels");
+        // Without asking for it the server returns names alone. Presence
+        // channels count people rather than sockets, so they answer with
+        // user_count and the rest with subscription_count; asking for both
+        // costs nothing and lets each channel reply with the one it keeps.
+        $channels = $this->get($application, "/apps/{$application->id()}/channels", [
+            'info' => 'subscription_count,user_count',
+        ]);
 
         if ($channels === null) {
             return AppMetrics::unavailable();
@@ -58,6 +64,55 @@ class ServerApi
             connections: (int) ($connections['connections'] ?? 0),
             channels: (array) ($channels['channels'] ?? []),
         );
+    }
+
+    /**
+     * Who is on a presence channel. Other kinds keep no identity, so the
+     * server answers with nothing for them.
+     *
+     * @return array<int, string>|null  Null when the server could not be asked.
+     */
+    public function channelUsers(Application $application, string $channel): ?array
+    {
+        $users = $this->get(
+            $application,
+            "/apps/{$application->id()}/channels/{$channel}/users",
+        );
+
+        if ($users === null) {
+            return null;
+        }
+
+        return array_values(array_filter(array_map(
+            fn($user) => isset($user['id']) ? (string) $user['id'] : null,
+            (array) ($users['users'] ?? []),
+        )));
+    }
+
+    /**
+     * Closes every connection a user holds. They are free to reconnect, so
+     * this ends a session rather than barring anyone; deactivating the
+     * application is what keeps them out.
+     */
+    public function terminateUser(Application $application, string $user): bool
+    {
+        $path = "/apps/{$application->id()}/users/{$user}/terminate_connections";
+
+        // An empty body still has to be signed for, as the server checks the
+        // digest it was given rather than whether one was needed.
+        $body = '{}';
+
+        try {
+            $response = $this->request()
+                ->withBody($body, 'application/json')
+                ->post($this->url($path) . '?' . http_build_query(
+                    $this->sign($application, 'POST', $path, ['body_md5' => md5($body)]),
+                ));
+        } catch (HttpClientException) {
+            return false;
+        }
+
+        return $response->successful();
     }
 
     /**
@@ -92,13 +147,18 @@ class ServerApi
     /**
      * @return array<string, mixed>|null
      */
-    protected function get(Application $application, string $path): ?array
+    /**
+     * @param  array<string, string>  $query  Signed along with the rest, as the server verifies it.
+     */
+    protected function get(Application $application, string $path, array $query = []): ?array
     {
-        return $this->remember($application->id() . $path, function () use ($application, $path) {
+        $key = $application->id() . $path . ($query ? '?' . http_build_query($query) : '');
+
+        return $this->remember($key, function () use ($application, $path, $query) {
             try {
                 $response = $this->request()->get(
                     $this->url($path),
-                    $this->sign($application, 'GET', $path),
+                    $this->sign($application, 'GET', $path, $query),
                 );
             } catch (HttpClientException) {
                 return null;
