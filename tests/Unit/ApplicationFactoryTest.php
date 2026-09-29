@@ -42,7 +42,7 @@ class ApplicationFactoryTest extends TestCase
 
         $this->assertSame(45, $application->pingInterval());
         $this->assertSame(25, $application->activityTimeout());
-        $this->assertSame(['example.test'], $application->allowedOrigins());
+        $this->assertSame(['example.test', 'localhost'], $application->allowedOrigins());
     }
 
     public function test_an_empty_origin_list_falls_back_to_the_defaults(): void
@@ -66,6 +66,36 @@ class ApplicationFactoryTest extends TestCase
         $this->assertSame(['app.example.com', 'localhost', '*.example.org'], $application->allowedOrigins());
     }
 
+    public function test_the_panel_may_connect_to_an_application_that_restricts_its_origins(): void
+    {
+        config()->set('patchbay.panel_origin', 'dash.example.com');
+
+        $application = $this->factory()->make($this->attributes(['allowed_origins' => ['app.example.com']]));
+
+        $this->assertSame(['app.example.com', 'dash.example.com'], $application->allowedOrigins());
+    }
+
+    public function test_the_panel_origin_falls_back_to_the_host_of_the_app_url(): void
+    {
+        config()->set('patchbay.panel_origin', null);
+        config()->set('app.url', 'https://patchbay.example.com');
+
+        $application = $this->factory()->make($this->attributes(['allowed_origins' => ['app.example.com']]));
+
+        $this->assertSame(['app.example.com', 'patchbay.example.com'], $application->allowedOrigins());
+    }
+
+    public function test_the_panel_origin_is_not_added_twice_or_to_an_open_application(): void
+    {
+        config()->set('patchbay.panel_origin', 'dash.example.com');
+
+        $listed = $this->factory()->make($this->attributes(['allowed_origins' => ['https://dash.example.com']]));
+        $open = $this->factory()->make($this->attributes(['allowed_origins' => ['*']]));
+
+        $this->assertSame(['dash.example.com'], $listed->allowedOrigins());
+        $this->assertSame(['*'], $open->allowedOrigins());
+    }
+
     public function test_an_application_overrides_the_defaults(): void
     {
         config()->set('patchbay.defaults.ping_interval', 45);
@@ -86,6 +116,26 @@ class ApplicationFactoryTest extends TestCase
         ]));
 
         $this->assertSame(10, $application->rateLimiting()['max_attempts']);
+    }
+
+    public function test_rate_limits_reach_reverb_as_numbers_and_booleans(): void
+    {
+        // What env() hands over for PATCHBAY_RATE_LIMIT_DECAY_SECONDS=60, and
+        // what a form can save. Reverb passes decay_seconds straight to Carbon,
+        // which refuses a string and fails every message on the connection.
+        config()->set('patchbay.defaults.rate_limiting', [
+            'enabled' => '1',
+            'max_attempts' => '60',
+            'decay_seconds' => '60',
+            'terminate_on_limit' => '0',
+        ]);
+
+        $this->assertSame([
+            'enabled' => true,
+            'max_attempts' => 60,
+            'decay_seconds' => 60,
+            'terminate_on_limit' => false,
+        ], $this->factory()->make($this->attributes())->rateLimiting());
     }
 
     public function test_it_merges_connection_options_over_the_configured_ones(): void

@@ -51,17 +51,41 @@ class ApplicationFactory
      * an origin written as a URL is reduced to its host rather than silently
      * refusing every client.
      *
+     * An application that restricts its origins also admits the panel's own,
+     * or the debug console could not connect to it; nobody should have to
+     * list the dashboard they are already using.
+     *
      * @param  array<string, mixed>  $attributes
      * @return array<int, string>
      */
     protected function allowedOrigins(array $attributes): array
     {
-        return array_values(array_map(
-            fn(string $origin) => str_contains($origin, '://')
-                ? (string) parse_url($origin, PHP_URL_HOST)
-                : $origin,
+        $origins = array_values(array_map(
+            fn(string $origin) => $this->host($origin),
             (array) $this->setting($attributes, 'allowed_origins'),
         ));
+
+        $panel = $this->panelOrigin();
+
+        if (in_array('*', $origins, strict: true) || $panel === null || in_array($panel, $origins, strict: true)) {
+            return $origins;
+        }
+
+        return [...$origins, $panel];
+    }
+
+    protected function panelOrigin(): ?string
+    {
+        $origin = $this->config->get('patchbay.panel_origin') ?: $this->config->get('app.url');
+
+        return filled($origin) ? $this->host((string) $origin) : null;
+    }
+
+    protected function host(string $origin): string
+    {
+        return str_contains($origin, '://')
+            ? (string) parse_url($origin, PHP_URL_HOST)
+            : $origin;
     }
 
     protected function nullableInt(mixed $value): ?int
@@ -70,18 +94,27 @@ class ApplicationFactory
     }
 
     /**
+     * Cast rather than passed through: env() and the form both hand over
+     * strings, and Reverb gives decay_seconds to Carbon as it is, which throws
+     * on "60" and fails every message the connection sends.
+     *
      * @param  array<string, mixed>  $attributes
-     * @return array<string, mixed>|null
+     * @return array{enabled: bool, max_attempts: int, decay_seconds: int, terminate_on_limit: bool}|null
      */
     protected function rateLimiting(array $attributes): ?array
     {
         $limits = $this->setting($attributes, 'rate_limiting');
 
-        if (! is_array($limits) || ! ($limits['enabled'] ?? false)) {
+        if (! is_array($limits) || ! filter_var($limits['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
             return null;
         }
 
-        return $limits;
+        return [
+            'enabled' => true,
+            'max_attempts' => (int) ($limits['max_attempts'] ?? 60),
+            'decay_seconds' => (int) ($limits['decay_seconds'] ?? 60),
+            'terminate_on_limit' => filter_var($limits['terminate_on_limit'] ?? false, FILTER_VALIDATE_BOOLEAN),
+        ];
     }
 
     /**

@@ -96,6 +96,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Panel Origin
+    |--------------------------------------------------------------------------
+    |
+    | The host the dashboard is served from. An application that restricts
+    | its allowed origins admits this one as well, so the debug console can
+    | reach it without anyone listing the dashboard by hand. Null takes the
+    | host of app.url.
+    |
+    */
+
+    'panel_origin' => env('PATCHBAY_PANEL_ORIGIN'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Defaults
     |--------------------------------------------------------------------------
     |
