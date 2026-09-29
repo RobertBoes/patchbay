@@ -80,6 +80,22 @@ class ServerAddressTest extends TestCase
         $this->assertSame('https://sockets.internal:8080', $this->address()->url());
     }
 
+    public function test_the_public_address_is_what_clients_are_given(): void
+    {
+        config()->set('patchbay.server.url', 'http://patchbay-reverb:8080');
+        config()->set('patchbay.options', ['host' => 'ws.example.com', 'port' => 443, 'scheme' => 'https']);
+
+        $this->assertSame('https://ws.example.com', $this->address()->publicUrl());
+        $this->assertSame('http://patchbay-reverb:8080', $this->address()->url());
+    }
+
+    public function test_the_public_address_keeps_a_port_that_is_not_the_default(): void
+    {
+        config()->set('patchbay.options', ['host' => 'sockets.test', 'port' => 8080, 'scheme' => 'http']);
+
+        $this->assertSame('http://sockets.test:8080', $this->address()->publicUrl());
+    }
+
     public function test_an_explicit_url_overrides_everything(): void
     {
         $this->certificateFor('patchbay-test.test');

@@ -43,6 +43,24 @@ class ServerApi
         });
     }
 
+    /**
+     * Whether the server answers at its public address: through whatever
+     * proxy, DNS and certificate stand in front of it, the way a client
+     * reaches it. Asked from here, so a server that cannot dial its own public
+     * name (split DNS, hairpin NAT) reads as unreachable though browsers would
+     * still get through; that is why this is not part of HealthCheck.
+     */
+    public function isPubliclyReachable(): bool
+    {
+        return (bool) $this->remember('public-up', function () {
+            try {
+                return $this->request()->get($this->address->publicUrl() . '/up')->successful();
+            } catch (HttpClientException) {
+                return false;
+            }
+        });
+    }
+
     public function metrics(Application $application): AppMetrics
     {
         // Without asking for it the server returns names alone. Presence

@@ -5,9 +5,11 @@ namespace RobertBoes\Patchbay\Filament\Widgets;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use RobertBoes\Patchbay\Models\App;
 use RobertBoes\Patchbay\Models\Metric;
 use RobertBoes\Patchbay\Server\ServerAddress;
+use RobertBoes\Patchbay\Server\ServerApi;
 use RobertBoes\Patchbay\Server\Health;
 use RobertBoes\Patchbay\Server\HealthCheck;
 
@@ -28,13 +30,16 @@ class ServerStatus extends StatsOverviewWidget
     protected function getStats(): array
     {
         $health = app(HealthCheck::class)->status();
+
+        // Only worth asking once the server itself is fine.
+        $unanswered = $health === Health::Operational && ! app(ServerApi::class)->isPubliclyReachable();
         $apps = config('patchbay.model', App::class);
 
         return [
             Stat::make(__('Server'), $health->label())
-                ->description($health === Health::Degraded
-                    ? __('Answering, but not serving applications')
-                    : app(ServerAddress::class)->url())
+                ->description($this->serverDescription($health, $unanswered))
+                ->descriptionColor($unanswered ? 'warning' : null)
+                ->descriptionIcon($unanswered ? 'heroicon-m-exclamation-triangle' : null)
                 ->color($health->color())
                 ->icon($health === Health::Down ? 'heroicon-m-signal-slash' : 'heroicon-m-signal'),
 
@@ -116,6 +121,23 @@ class ServerStatus extends StatsOverviewWidget
             'when' => $when,
             'count' => $samples->count(),
         ]);
+    }
+
+    /**
+     * The address clients use, not the one the panel dials: behind a proxy
+     * that is an internal name nobody outside could reach.
+     */
+    protected function serverDescription(Health $health, bool $unanswered): string
+    {
+        if ($health === Health::Degraded) {
+            return __('Answering, but not serving applications');
+        }
+
+        $address = Str::replaceFirst('http', 'ws', app(ServerAddress::class)->publicUrl());
+
+        return $unanswered
+            ? __(':address does not answer from here', ['address' => $address])
+            : $address;
     }
 
     protected function connections(string $value, string $description): Stat

@@ -23,6 +23,22 @@ class ServerAddress
         return "{$scheme}://{$this->host()}:{$this->port()}";
     }
 
+    /**
+     * How clients reach the server, as the snippets hand it out. Not where
+     * the panel reaches it: behind a proxy or in another container, the two
+     * differ, and only this one means anything to a person reading it.
+     */
+    public function publicUrl(): string
+    {
+        $options = (array) $this->config->get('patchbay.options', []);
+        $secure = ($options['scheme'] ?? 'https') === 'https';
+        $host = (string) ($options['host'] ?? '127.0.0.1');
+        $port = (int) ($options['port'] ?? 443);
+
+        return ($secure ? 'https' : 'http') . "://{$host}"
+            . ($port === ($secure ? 443 : 80) ? '' : ":{$port}");
+    }
+
     public function isSecure(): bool
     {
         $tls = (array) $this->config->get($this->server('options.tls'), []);
