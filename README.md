@@ -40,6 +40,10 @@ Origins are hostnames, `example.com` or `*.example.com`: Reverb matches them aga
 host of a connection's `Origin` header alone. One written as a URL is reduced to its
 host rather than refusing every client.
 
+An application that restricts its origins also admits the dashboard's own host, so the
+debug console can reach it without anyone listing it. That host is `PATCHBAY_PANEL_ORIGIN`,
+or the host of `APP_URL` when it is not set.
+
 ## How it works
 
 Three pieces, each doing one thing:
