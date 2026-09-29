@@ -1,0 +1,78 @@
+<?php
+
+namespace RobertBoes\Patchbay\Filament\Widgets;
+
+use Filament\Widgets\ChartWidget;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
+use RobertBoes\Patchbay\Models\Metric;
+
+class ConnectionsChart extends ChartWidget
+{
+    protected ?string $heading = 'Connections';
+
+    protected int|string|array $columnSpan = 'full';
+
+    // Uncapped, a line chart fills most of a narrow screen.
+    protected ?string $maxHeight = '260px';
+
+    public function getPollingInterval(): ?string
+    {
+        return max(30, (int) config('patchbay.metrics.interval', 60)) . 's';
+    }
+
+    /**
+     * A reading differing from the last one reaches the panel over the
+     * server's own WebSocket, and this re-reads rather than waiting for the
+     * next poll.
+     *
+     * @return array<string, string>
+     */
+    protected function getListeners(): array
+    {
+        return ['patchbay-stats-changed' => '$refresh'];
+    }
+
+    /** The samples this chart draws, narrowed by subclasses. */
+    protected function metricsQuery(): Builder
+    {
+        $model = config('patchbay.metrics.model', Metric::class);
+
+        return $model::query();
+    }
+
+    protected function getData(): array
+    {
+        $samples = $this->metricsQuery()
+            ->where('recorded_at', '>=', Carbon::now()->subDay())
+            ->orderBy('recorded_at')
+            ->get()
+            ->groupBy(fn(Metric $metric) => $metric->recorded_at->format('Y-m-d H:i'));
+
+        return [
+            'datasets' => [
+                [
+                    'label' => __('Connections'),
+                    'data' => $samples->map(fn($group) => $group->sum('connections'))->values()->all(),
+                    'borderColor' => 'rgb(16, 185, 129)',
+                    'backgroundColor' => 'rgba(16, 185, 129, 0.1)',
+                    'fill' => true,
+                ],
+                [
+                    'label' => __('Messages'),
+                    'data' => $samples->map(
+                        fn($group) => $group->sum('messages_sent') + $group->sum('messages_received'),
+                    )->values()->all(),
+                    'borderColor' => 'rgb(99, 102, 241)',
+                    'fill' => false,
+                ],
+            ],
+            'labels' => $samples->keys()->map(fn(string $at) => substr($at, 11))->all(),
+        ];
+    }
+
+    protected function getType(): string
+    {
+        return 'line';
+    }
+}
